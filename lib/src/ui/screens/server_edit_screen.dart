@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,9 +102,20 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
             if (_useProxy) ...<Widget>[
               TextFormField(
                 controller: _proxyHostController,
-                decoration: const InputDecoration(labelText: 'Proxy host'),
-                validator: (String? value) =>
-                    (value == null || value.trim().isEmpty) ? 'Enter a host' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Proxy host',
+                  helperText: 'IP address, e.g. 127.0.0.1',
+                ),
+                // The SOCKS client wants a literal IP; hostnames would only
+                // blow up later when the first request goes out.
+                validator: (String? value) {
+                  final String host = value?.trim() ?? '';
+                  if (host.isEmpty) return 'Enter a host';
+                  if (InternetAddress.tryParse(host) == null) {
+                    return 'Use an IP address (hostnames don\'t work here)';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(

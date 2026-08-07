@@ -33,6 +33,7 @@ class ServerListScreen extends ConsumerWidget {
       body: servers.isEmpty
           ? const _EmptyState()
           : ListView.builder(
+              padding: EdgeInsets.only(bottom: 88 + MediaQuery.paddingOf(context).bottom),
               itemCount: servers.length,
               itemBuilder: (BuildContext context, int index) {
                 final Server server = servers[index];

@@ -27,6 +27,7 @@ class SiteListScreen extends ConsumerWidget {
       body: sites.isEmpty
           ? const _EmptyState()
           : ListView.builder(
+              padding: EdgeInsets.only(bottom: 88 + MediaQuery.paddingOf(context).bottom),
               itemCount: sites.length,
               itemBuilder: (BuildContext context, int index) {
                 final Site site = sites[index];

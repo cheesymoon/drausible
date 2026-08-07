@@ -12,6 +12,13 @@ class ProxyConfig {
   factory ProxyConfig.fromJson(Map<String, dynamic> json) {
     return ProxyConfig(host: json['host'] as String, port: json['port'] as int);
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ProxyConfig && other.host == host && other.port == port;
+
+  @override
+  int get hashCode => Object.hash(host, port);
 }
 
 enum ApiVersion { unknown, v1, v2 }
@@ -67,4 +74,16 @@ class Server {
       apiVersion: ApiVersion.values.byName(json['apiVersion'] as String? ?? 'unknown'),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is Server &&
+      other.id == id &&
+      other.name == name &&
+      other.baseUrl == baseUrl &&
+      other.proxy == proxy &&
+      other.apiVersion == apiVersion;
+
+  @override
+  int get hashCode => Object.hash(id, name, baseUrl, proxy, apiVersion);
 }

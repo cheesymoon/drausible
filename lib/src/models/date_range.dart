@@ -34,6 +34,18 @@ class DateRangeSel {
     _Preset.custom => null,
   };
 
+  /// Preset for a stored shorthand, or null for unknown input. Used to
+  /// restore the last picked range across app starts.
+  static DateRangeSel? fromShorthand(String? shorthand) => switch (shorthand) {
+    'day' => const DateRangeSel.day(),
+    '7d' => const DateRangeSel.d7(),
+    '30d' => const DateRangeSel.d30(),
+    'month' => const DateRangeSel.month(),
+    '6mo' => const DateRangeSel.mo6(),
+    '12mo' => const DateRangeSel.mo12(),
+    _ => null,
+  };
+
   /// Value to send as the v2 query body's "date_range": the shorthand string,
   /// or a ["YYYY-MM-DD", "YYYY-MM-DD"] pair for a custom range.
   Object get v2DateRange {

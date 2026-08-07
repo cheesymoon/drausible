@@ -113,4 +113,25 @@ void main() {
       expect(const DateRangeSel.d30(), isNot(custom));
     });
   });
+
+  group('fromShorthand', () {
+    test('round-trips every preset through its shorthand', () {
+      const List<DateRangeSel> presets = <DateRangeSel>[
+        DateRangeSel.day(),
+        DateRangeSel.d7(),
+        DateRangeSel.d30(),
+        DateRangeSel.month(),
+        DateRangeSel.mo6(),
+        DateRangeSel.mo12(),
+      ];
+      for (final DateRangeSel preset in presets) {
+        expect(DateRangeSel.fromShorthand(preset.v2Shorthand), preset);
+      }
+    });
+
+    test('returns null for unknown or null input', () {
+      expect(DateRangeSel.fromShorthand('yesteryear'), isNull);
+      expect(DateRangeSel.fromShorthand(null), isNull);
+    });
+  });
 }

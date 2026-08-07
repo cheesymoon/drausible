@@ -28,6 +28,11 @@ OverviewData _fakeOverview({int visitors = 1423, int pageviews = 3200}) {
 }
 
 Future<void> _pump(WidgetTester tester, List<Override> overrides) async {
+  // Phone-portrait viewport; the metric grid switches to 4 columns on
+  // anything wider, which moves everything these tests tap on.
+  tester.view.physicalSize = const Size(420, 890);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
       overrides: overrides,
@@ -60,6 +65,22 @@ void main() {
     expect(find.text(NumberFormat.compact().format(3200)), findsOneWidget);
     expect(find.text('47%'), findsOneWidget);
     expect(find.text('2m 41s'), findsOneWidget);
+  });
+
+  testWidgets('metric cards sit in one row on a wide (landscape) viewport', (
+    WidgetTester tester,
+  ) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+    ]);
+    tester.view.physicalSize = const Size(890, 420);
+    await tester.pumpAndSettle();
+
+    final double visitorsY = tester.getTopLeft(find.text('Visitors')).dy;
+    final double durationY = tester.getTopLeft(find.text('Visit duration')).dy;
+    // Same row (small offset from text centering) - a 2x2 stack would put
+    // this card a full row (~100px) lower.
+    expect((durationY - visitorsY).abs(), lessThan(40));
   });
 
   testWidgets('switching the range chip queries the provider with the new range', (
@@ -105,5 +126,113 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(NumberFormat.compact().format(1423)), findsOneWidget);
+  });
+
+  ({String serverId, String siteId, DateRangeSel range, BreakdownDimension dimension}) breakdownArgs(
+    BreakdownDimension dimension,
+  ) => (serverId: _serverId, siteId: _siteId, range: args30.range, dimension: dimension);
+
+  List<BreakdownRow> fakeRows(List<(String, int)> entries) => <BreakdownRow>[
+    for (final (String name, int visitors) in entries) BreakdownRow(name: name, visitors: visitors),
+  ];
+
+  testWidgets('the realtime badge shows the current visitor count', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
+      realtimeProvider((
+        serverId: _serverId,
+        siteId: _siteId,
+      )).overrideWith((Ref ref) => Stream<int>.value(23)),
+    ]);
+    // The dot pulses forever once a value arrives, so pumpAndSettle would
+    // time out here — pump a fixed number of frames instead.
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('23'), findsOneWidget);
+  });
+
+  testWidgets('the Pages tab renders breakdown rows with their counts', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.page),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('/blog', 812), ('/pricing', 340)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('/blog'), findsOneWidget);
+    expect(find.text(NumberFormat.compact().format(812)), findsOneWidget);
+    expect(find.text('/pricing'), findsOneWidget);
+    expect(find.text(NumberFormat.compact().format(340)), findsOneWidget);
+  });
+
+  testWidgets('the Countries tab renders a flag and the full country name', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.country),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('DE', 120)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Countries'));
+    await tester.tap(find.text('Countries'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('🇩🇪 Germany'), findsOneWidget);
+  });
+
+  testWidgets('switching the Devices SegmentedButton queries the matching dimension', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.device),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('Desktop', 500)])),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.browser),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('Firefox', 90)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Devices'));
+    await tester.tap(find.text('Devices'));
+    await tester.pumpAndSettle();
+    expect(find.text('Desktop'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Browser'));
+    await tester.tap(find.text('Browser'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Firefox'), findsOneWidget);
+    expect(find.text('Desktop'), findsNothing);
+  });
+
+  testWidgets('a breakdown error shows a one-line message and a retry that recovers', (
+    WidgetTester tester,
+  ) async {
+    int callCount = 0;
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async {
+        callCount++;
+        if (callCount == 1) throw const UnauthorizedException();
+        return fakeRows(<(String, int)>[('/blog', 812)]);
+      }),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('API key rejected'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Retry'), findsOneWidget);
+
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Retry'));
+    await tester.tap(find.widgetWithText(TextButton, 'Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('/blog'), findsOneWidget);
   });
 }

@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../api/api_exception.dart';
 import '../../models/date_range.dart';
@@ -11,8 +12,10 @@ import '../../models/site.dart';
 import '../../models/stats.dart';
 import '../../providers/config_providers.dart';
 import '../../providers/stats_providers.dart';
+import '../../util/countries.dart';
 
 typedef _OverviewArgs = ({String serverId, String siteId, DateRangeSel range});
+typedef _BreakdownArgs = ({String serverId, String siteId, DateRangeSel range, BreakdownDimension dimension});
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({required this.serverId, required this.siteId, required this.title, super.key});
@@ -26,16 +29,39 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  static const String _lastRangeKey = 'last_range';
+
   DateRangeSel _range = const DateRangeSel.d30();
 
   _OverviewArgs get _args => (serverId: widget.serverId, siteId: widget.siteId, range: _range);
+
+  @override
+  void initState() {
+    super.initState();
+    // Prefs are already loaded by the time any dashboard opens.
+    final SharedPreferences? prefs = ref.read(sharedPreferencesProvider).valueOrNull;
+    final DateRangeSel? saved = DateRangeSel.fromShorthand(prefs?.getString(_lastRangeKey));
+    if (saved != null) _range = saved;
+  }
+
+  void _selectRange(DateRangeSel range) {
+    setState(() => _range = range);
+    // Presets persist; a fixed custom date pair would be stale next visit.
+    final String? shorthand = range.v2Shorthand;
+    if (shorthand != null) {
+      unawaited(ref.read(sharedPreferencesProvider).valueOrNull?.setString(_lastRangeKey, shorthand));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final AsyncValue<OverviewData> overview = ref.watch(overviewProvider(_args));
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: <Widget>[_RealtimeBadge(serverId: widget.serverId, siteId: widget.siteId)],
+      ),
       body: RefreshIndicator(
         onRefresh: () {
           // Evict first, otherwise the refetch would be served by the 60s cache.
@@ -46,21 +72,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               .firstWhere((Site s) => s.id == widget.siteId)
               .domain;
           ref.read(statsRepositoryProvider).evictSite(widget.serverId, domain);
+          // Whole family: the visible breakdown tab must refetch too.
+          ref.invalidate(breakdownProvider);
           return ref.refresh(overviewProvider(_args).future);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          // Extra bottom room so gesture bars don't sit on the last row.
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + MediaQuery.paddingOf(context).bottom),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              _RangeSelector(
-                selected: _range,
-                onSelected: (DateRangeSel range) => setState(() => _range = range),
-              ),
+              _RangeSelector(selected: _range, onSelected: _selectRange),
               const SizedBox(height: 16),
               overview.when(
-                data: (OverviewData data) => _DashboardBody(data: data, range: _range),
+                data: (OverviewData data) => _DashboardBody(
+                  serverId: widget.serverId,
+                  siteId: widget.siteId,
+                  data: data,
+                  range: _range,
+                ),
                 loading: () => const _DashboardSkeleton(),
                 error: (Object error, StackTrace stackTrace) => _DashboardError(
                   error: error,
@@ -128,8 +159,10 @@ class _RangeSelector extends StatelessWidget {
 }
 
 class _DashboardBody extends StatelessWidget {
-  const _DashboardBody({required this.data, required this.range});
+  const _DashboardBody({required this.serverId, required this.siteId, required this.data, required this.range});
 
+  final String serverId;
+  final String siteId;
   final OverviewData data;
   final DateRangeSel range;
 
@@ -141,6 +174,8 @@ class _DashboardBody extends StatelessWidget {
         _MetricGrid(stats: data.aggregate),
         const SizedBox(height: 16),
         _TimeseriesChart(points: data.timeseries, range: range),
+        const SizedBox(height: 24),
+        _BreakdownTabs(serverId: serverId, siteId: siteId, range: range),
       ],
     );
   }
@@ -154,19 +189,30 @@ class _MetricGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final NumberFormat compact = NumberFormat.compact();
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.6,
-      children: <Widget>[
-        _MetricCard(label: 'Visitors', value: compact.format(stats.visitors)),
-        _MetricCard(label: 'Pageviews', value: compact.format(stats.pageviews)),
-        _MetricCard(label: 'Bounce rate', value: '${stats.bounceRate.round()}%'),
-        _MetricCard(label: 'Visit duration', value: _formatDuration(stats.visitDurationSeconds)),
-      ],
+    // 2x2 on portrait phones, one row of four when there's width for it
+    // (landscape, tablets, split screen).
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool wide = constraints.maxWidth >= 640;
+        return GridView.count(
+          crossAxisCount: wide ? 4 : 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: wide ? 1.9 : 1.6,
+          children: <Widget>[
+            _MetricCard(label: 'Visitors', value: compact.format(stats.visitors), tone: _CardTone.primary),
+            _MetricCard(label: 'Pageviews', value: compact.format(stats.pageviews), tone: _CardTone.secondary),
+            _MetricCard(label: 'Bounce rate', value: '${stats.bounceRate.round()}%', tone: _CardTone.tertiary),
+            _MetricCard(
+              label: 'Visit duration',
+              value: _formatDuration(stats.visitDurationSeconds),
+              tone: _CardTone.neutral,
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -179,26 +225,41 @@ String _formatDuration(int seconds) {
   return '${minutes}m ${remainingSeconds}s';
 }
 
+/// Which slice of the color scheme a metric card is painted with.
+enum _CardTone { primary, secondary, tertiary, neutral }
+
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value});
+  const _MetricCard({required this.label, required this.value, required this.tone});
 
   final String label;
   final String value;
+  final _CardTone tone;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final (Color background, Color foreground) = switch (tone) {
+      _CardTone.primary => (colorScheme.primaryContainer, colorScheme.onPrimaryContainer),
+      _CardTone.secondary => (colorScheme.secondaryContainer, colorScheme.onSecondaryContainer),
+      _CardTone.tertiary => (colorScheme.tertiaryContainer, colorScheme.onTertiaryContainer),
+      _CardTone.neutral => (colorScheme.surfaceContainerHighest, colorScheme.onSurface),
+    };
     return Card(
+      color: background,
+      elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text(value, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: foreground),
+            ),
             const SizedBox(height: 4),
-            Text(label, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+            Text(label, style: textTheme.bodySmall?.copyWith(color: foreground.withValues(alpha: 0.75))),
           ],
         ),
       ),
@@ -283,6 +344,10 @@ class _TimeseriesChart extends StatelessWidget {
           ),
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
+              // Anchored to the top of the plot so it doesn't ride the line
+              // up and down while scrubbing.
+              showOnTopOfTheChartBoxArea: true,
+              fitInsideHorizontally: true,
               getTooltipItems: (List<LineBarSpot> spots) => <LineTooltipItem>[
                 for (final LineBarSpot spot in spots)
                   LineTooltipItem(
@@ -299,7 +364,17 @@ class _TimeseriesChart extends StatelessWidget {
               color: colorScheme.primary,
               barWidth: 2,
               dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(show: true, color: colorScheme.primary.withValues(alpha: 0.1)),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    colorScheme.primary.withValues(alpha: 0.35),
+                    colorScheme.primary.withValues(alpha: 0.02),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -383,6 +458,386 @@ class _DashboardError extends StatelessWidget {
             FilledButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Current-visitor pill in the AppBar. Stops watching the provider (and so
+/// its 30s polling) while the app isn't in the foreground.
+class _RealtimeBadge extends ConsumerStatefulWidget {
+  const _RealtimeBadge({required this.serverId, required this.siteId});
+
+  final String serverId;
+  final String siteId;
+
+  @override
+  ConsumerState<_RealtimeBadge> createState() => _RealtimeBadgeState();
+}
+
+class _RealtimeBadgeState extends ConsumerState<_RealtimeBadge> with WidgetsBindingObserver {
+  bool _watching = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final bool watching = state == AppLifecycleState.resumed;
+    if (watching != _watching) setState(() => _watching = watching);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final int? visitors = _watching
+        ? ref.watch(realtimeProvider((serverId: widget.serverId, siteId: widget.siteId))).valueOrNull
+        : null;
+
+    return Tooltip(
+      message: 'Visitors right now',
+      child: Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _PulsingDot(active: visitors != null),
+            if (visitors != null) ...<Widget>[const SizedBox(width: 6), Text('$visitors')],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot({required this.active});
+
+  final bool active;
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+    value: 1,
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(_PulsingDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncAnimation();
+  }
+
+  void _syncAnimation() {
+    final bool shouldPulse = widget.active && !MediaQuery.of(context).disableAnimations;
+    if (shouldPulse && !_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    } else if (!shouldPulse && _controller.isAnimating) {
+      _controller.stop();
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final Color color = widget.active ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.3);
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.35, end: 1).animate(_controller),
+      child: Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    );
+  }
+}
+
+/// TabBar for Pages/Sources/Countries/Devices. No TabBarView — the screen is
+/// one SingleChildScrollView, so only the selected tab's list is built below
+/// the bar, which is also what makes the other tabs' providers lazy.
+class _BreakdownTabs extends StatelessWidget {
+  const _BreakdownTabs({required this.serverId, required this.siteId, required this.range});
+
+  final String serverId;
+  final String siteId;
+  final DateRangeSel range;
+
+  static const List<String> _labels = <String>['Pages', 'Sources', 'Countries', 'Devices'];
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: _labels.length,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: <Widget>[for (final String label in _labels) Tab(text: label)],
+          ),
+          const SizedBox(height: 12),
+          _SelectedBreakdownTab(serverId: serverId, siteId: siteId, range: range),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedBreakdownTab extends StatefulWidget {
+  const _SelectedBreakdownTab({required this.serverId, required this.siteId, required this.range});
+
+  final String serverId;
+  final String siteId;
+  final DateRangeSel range;
+
+  @override
+  State<_SelectedBreakdownTab> createState() => _SelectedBreakdownTabState();
+}
+
+class _SelectedBreakdownTabState extends State<_SelectedBreakdownTab> {
+  int _index = 0;
+  TabController? _controller;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final TabController controller = DefaultTabController.of(context);
+    if (_controller != controller) {
+      _controller?.removeListener(_onTabControllerChanged);
+      _controller = controller..addListener(_onTabControllerChanged);
+    }
+  }
+
+  void _onTabControllerChanged() {
+    if (_controller!.index != _index) setState(() => _index = _controller!.index);
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onTabControllerChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_index) {
+      case 0:
+        return _BreakdownList(
+          serverId: widget.serverId,
+          siteId: widget.siteId,
+          range: widget.range,
+          dimension: BreakdownDimension.page,
+        );
+      case 1:
+        return _BreakdownList(
+          serverId: widget.serverId,
+          siteId: widget.siteId,
+          range: widget.range,
+          dimension: BreakdownDimension.source,
+        );
+      case 2:
+        return _BreakdownList(
+          serverId: widget.serverId,
+          siteId: widget.siteId,
+          range: widget.range,
+          dimension: BreakdownDimension.country,
+        );
+      default:
+        return _DevicesTab(serverId: widget.serverId, siteId: widget.siteId, range: widget.range);
+    }
+  }
+}
+
+class _DevicesTab extends StatefulWidget {
+  const _DevicesTab({required this.serverId, required this.siteId, required this.range});
+
+  final String serverId;
+  final String siteId;
+  final DateRangeSel range;
+
+  @override
+  State<_DevicesTab> createState() => _DevicesTabState();
+}
+
+class _DevicesTabState extends State<_DevicesTab> {
+  BreakdownDimension _dimension = BreakdownDimension.device;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SegmentedButton<BreakdownDimension>(
+          segments: const <ButtonSegment<BreakdownDimension>>[
+            ButtonSegment<BreakdownDimension>(value: BreakdownDimension.device, label: Text('Device')),
+            ButtonSegment<BreakdownDimension>(value: BreakdownDimension.browser, label: Text('Browser')),
+            ButtonSegment<BreakdownDimension>(value: BreakdownDimension.os, label: Text('OS')),
+          ],
+          selected: <BreakdownDimension>{_dimension},
+          onSelectionChanged: (Set<BreakdownDimension> selected) => setState(() => _dimension = selected.first),
+        ),
+        const SizedBox(height: 12),
+        _BreakdownList(serverId: widget.serverId, siteId: widget.siteId, range: widget.range, dimension: _dimension),
+      ],
+    );
+  }
+}
+
+class _BreakdownList extends ConsumerWidget {
+  const _BreakdownList({required this.serverId, required this.siteId, required this.range, required this.dimension});
+
+  final String serverId;
+  final String siteId;
+  final DateRangeSel range;
+  final BreakdownDimension dimension;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final _BreakdownArgs args = (serverId: serverId, siteId: siteId, range: range, dimension: dimension);
+    final AsyncValue<List<BreakdownRow>> breakdown = ref.watch(breakdownProvider(args));
+
+    return breakdown.when(
+      data: (List<BreakdownRow> rows) =>
+          _BreakdownRows(rows: rows, isCountry: dimension == BreakdownDimension.country),
+      loading: () => const _BreakdownSkeleton(),
+      error: (Object error, StackTrace stackTrace) => _BreakdownError(
+        message: error is ApiException ? error.message : 'Something went wrong',
+        onRetry: () => ref.invalidate(breakdownProvider(args)),
+      ),
+    );
+  }
+}
+
+class _BreakdownRows extends StatelessWidget {
+  const _BreakdownRows({required this.rows, required this.isCountry});
+
+  final List<BreakdownRow> rows;
+  final bool isCountry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text('No data for this range', style: Theme.of(context).textTheme.bodyMedium),
+        ),
+      );
+    }
+
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final NumberFormat compact = NumberFormat.compact();
+    final int maxVisitors = rows.map((BreakdownRow r) => r.visitors).reduce((int a, int b) => a > b ? a : b);
+
+    // Countries usually arrive as ISO codes; anything else renders as-is
+    // (no orphan space when there's no flag to show).
+    String rowLabel(String name) {
+      if (!isCountry) return name;
+      final String flag = countryFlag(name);
+      return flag.isEmpty ? countryName(name) : '$flag ${countryName(name)}';
+    }
+
+    return Column(
+      children: <Widget>[
+        for (final BreakdownRow row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Stack(
+              children: <Widget>[
+                FractionallySizedBox(
+                  widthFactor: maxVisitors == 0 ? 0 : row.visitors / maxVisitors,
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: 32,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            rowLabel(row.name),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(compact.format(row.visitors)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _BreakdownSkeleton extends StatelessWidget {
+  const _BreakdownSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return Column(
+      children: <Widget>[
+        for (int i = 0; i < 3; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Container(
+              height: 32,
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _BreakdownError extends StatelessWidget {
+  const _BreakdownError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: <Widget>[
+          Expanded(child: Text(message, style: Theme.of(context).textTheme.bodySmall)),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
       ),
     );
   }

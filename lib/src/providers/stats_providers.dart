@@ -1,10 +1,14 @@
 // Riverpod wiring for the stats domain. No codegen — plain providers.
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../api/api_exception.dart';
 import '../api/http_client_factory.dart';
 import '../api/plausible_api_v2.dart';
+import '../api/realtime_api.dart';
 import '../models/date_range.dart';
 import '../models/server.dart';
 import '../models/site.dart';
@@ -67,3 +71,58 @@ overviewProvider =
             timeseries: results[1] as List<TimeseriesPoint>,
           );
         });
+
+final AutoDisposeFutureProviderFamily<
+  List<BreakdownRow>,
+  ({String serverId, String siteId, DateRangeSel range, BreakdownDimension dimension})
+>
+breakdownProvider = FutureProvider.autoDispose
+    .family<List<BreakdownRow>, ({String serverId, String siteId, DateRangeSel range, BreakdownDimension dimension})>((
+      ref,
+      args,
+    ) async {
+      final ConfigState config = ref.watch(configProvider);
+      final Server server = config.servers.firstWhere((Server s) => s.id == args.serverId);
+      final Site site = config.sites.firstWhere((Site s) => s.id == args.siteId);
+      final StatsRepository repository = ref.watch(statsRepositoryProvider);
+      return repository.breakdown(server, site, args.range, args.dimension);
+    });
+
+/// Current visitor count, polled every 30s. Only the first fetch failing
+/// surfaces as a stream error — later failed ticks are skipped so the UI
+/// keeps showing the last known value instead of blanking out.
+final AutoDisposeStreamProviderFamily<int, ({String serverId, String siteId})> realtimeProvider =
+    StreamProvider.autoDispose.family<int, ({String serverId, String siteId})>((ref, args) {
+      final ConfigState config = ref.watch(configProvider);
+      final Server server = config.servers.firstWhere((Server s) => s.id == args.serverId);
+      final Site site = config.sites.firstWhere((Site s) => s.id == args.siteId);
+      final http.Client client = ref.watch(httpClientProvider(args.serverId));
+      final ConfigNotifier notifier = ref.read(configProvider.notifier);
+
+      final StreamController<int> controller = StreamController<int>();
+      bool first = true;
+
+      Future<void> poll() async {
+        try {
+          final String? apiKey = await notifier.getApiKey(server.id);
+          if (apiKey == null) throw const UnauthorizedException();
+          final int visitors = await RealtimeApi(client, server.baseUrl, apiKey).currentVisitors(site.domain);
+          if (!controller.isClosed) controller.add(visitors);
+        } catch (error, stackTrace) {
+          // Keep the last value on the stream instead of erroring out, unless
+          // this was the very first fetch and there's no last value to show.
+          if (first && !controller.isClosed) controller.addError(error, stackTrace);
+        }
+        first = false;
+      }
+
+      unawaited(poll());
+      final Timer timer = Timer.periodic(const Duration(seconds: 30), (_) => unawaited(poll()));
+
+      ref.onDispose(() {
+        timer.cancel();
+        unawaited(controller.close());
+      });
+
+      return controller.stream;
+    });

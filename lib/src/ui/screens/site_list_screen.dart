@@ -43,7 +43,8 @@ class SiteListScreen extends ConsumerWidget {
                     unawaited(
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (BuildContext context) => DashboardScreen(siteDomain: title),
+                          builder: (BuildContext context) =>
+                              DashboardScreen(serverId: server.id, siteId: site.id, title: title),
                         ),
                       ),
                     );
@@ -102,13 +103,25 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(Icons.language, size: 64, color: colorScheme.outline),
-          const SizedBox(height: 16),
-          Text('Add your first site', style: Theme.of(context).textTheme.titleMedium),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.language, size: 64, color: colorScheme.outline),
+            const SizedBox(height: 16),
+            Text('Add your first site', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Plausible servers don\'t let the app list your sites, so you add '
+              'them by domain. Sites are added one by one.',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -150,7 +163,14 @@ class _AddSiteDialogState extends State<_AddSiteDialog> {
           children: <Widget>[
             TextFormField(
               controller: _domainController,
-              decoration: const InputDecoration(labelText: 'Domain', hintText: 'example.com'),
+              decoration: const InputDecoration(
+                labelText: 'Domain',
+                hintText: 'example.com',
+                helperText: 'Exactly as it appears in your Plausible dashboard —\n'
+                    'the part after the host in its URL, e.g. /example.com.\n'
+                    'It can differ from the server\'s own domain.',
+                helperMaxLines: 3,
+              ),
               validator: _validateDomain,
             ),
             const SizedBox(height: 16),

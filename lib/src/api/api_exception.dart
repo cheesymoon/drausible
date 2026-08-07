@@ -56,3 +56,20 @@ class ServerException extends ApiException {
   @override
   String get message => 'Unexpected server response ($statusCode)';
 }
+
+/// Throws the [ApiException] matching a non-2xx status code. Does nothing
+/// for a 2xx status — callers still need to parse the body themselves.
+void throwForStatusCode(int statusCode) {
+  switch (statusCode) {
+    case 401:
+    case 403:
+      throw const UnauthorizedException();
+    case 404:
+      throw const NotFoundEndpointException();
+    case 429:
+      throw const RateLimitedException();
+  }
+  if (statusCode < 200 || statusCode >= 300) {
+    throw ServerException(statusCode);
+  }
+}

@@ -128,18 +128,7 @@ class PlausibleApiV2 implements PlausibleApi {
   }
 
   Map<String, dynamic> _decodeBody(http.Response response) {
-    switch (response.statusCode) {
-      case 401:
-      case 403:
-        throw const UnauthorizedException();
-      case 404:
-        throw const NotFoundEndpointException();
-      case 429:
-        throw const RateLimitedException();
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ServerException(response.statusCode);
-    }
+    throwForStatusCode(response.statusCode);
     try {
       final dynamic decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) throw const FormatException('response body is not an object');

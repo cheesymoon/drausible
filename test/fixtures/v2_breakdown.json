@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "metrics": [532],
+      "dimensions": ["United States"]
+    },
+    {
+      "metrics": [210],
+      "dimensions": ["Germany"]
+    },
+    {
+      "metrics": [98],
+      "dimensions": ["United Kingdom"]
+    }
+  ],
+  "meta": {}
+}

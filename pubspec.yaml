@@ -42,7 +42,7 @@ dependencies:
   shared_preferences: ^2.5.3
   # 9.x is the last line that runs on Android 5 (v10 wants minSdk 23+)
   flutter_secure_storage: ^9.2.4
-  socks5_proxy: ^1.0.6
+  socks5_proxy: ^2.1.1
 
 dev_dependencies:
   flutter_test:

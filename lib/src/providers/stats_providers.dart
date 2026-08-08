@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../api/api_exception.dart';
 import '../api/http_client_factory.dart';
-import '../api/plausible_api_v2.dart';
+import '../api/plausible_api_fallback.dart';
 import '../api/realtime_api.dart';
 import '../models/date_range.dart';
 import '../models/server.dart';
@@ -17,32 +17,93 @@ import '../repositories/config_repository.dart';
 import '../repositories/stats_repository.dart';
 import 'config_providers.dart';
 
+// A server or site can be deleted while a provider keyed by its id is still
+// alive — a dashboard mid-refresh, a preview still loading. Plain firstWhere
+// answers that with a bare StateError; these say what went missing.
+Server? _serverOrNull(ConfigState config, String serverId) {
+  for (final Server server in config.servers) {
+    if (server.id == serverId) return server;
+  }
+  return null;
+}
+
+Server _serverById(ConfigState config, String serverId) =>
+    _serverOrNull(config, serverId) ?? (throw StateError('No server with id $serverId'));
+
+Site _siteById(ConfigState config, String siteId) => config.sites.firstWhere(
+  (Site s) => s.id == siteId,
+  orElse: () => throw StateError('No site with id $siteId'),
+);
+
 /// One http.Client per server, rebuilt (and the old one closed) whenever that
-/// server's config changes.
+/// server's transport changes.
 final ProviderFamily<http.Client, String> httpClientProvider = Provider.family<http.Client, String>((
   ref,
   serverId,
 ) {
-  // Narrowed to the proxy on purpose - it is all buildClientFor reads.
-  // Watching the whole Server would close this client on an edit that has
-  // nothing to do with the transport, and IOClient.close() aborts the
+  // Narrowed to the proxy on purpose — it is all buildClientFor reads.
+  // Watching the whole Server would close this client when a rename, or a
+  // freshly probed api version, is written, and IOClient.close() aborts the
   // requests it still has in flight.
   final ProxyConfig? proxy = ref.watch(
-    configProvider.select(
-      (ConfigState s) => s.servers.firstWhere((Server s) => s.id == serverId).proxy,
-    ),
+    configProvider.select((ConfigState config) => _serverById(config, serverId).proxy),
   );
   final http.Client client = buildClientFor(proxy);
   ref.onDispose(client.close);
   return client;
 });
 
+/// Which stats API each server speaks, held in memory for the app's lifetime.
+/// Seeded from the persisted version, so a server detected on an earlier run
+/// never probes again. Invalidate an entry to force a re-probe ("Re-check").
+final ProviderFamily<ApiVersionResolver, String> apiVersionResolverProvider =
+    Provider.family<ApiVersionResolver, String>((ref, serverId) {
+      // read, not watch: the probe's answer is written back to this very
+      // server, and rebuilding on that would throw the answer away.
+      return ApiVersionResolver(_serverById(ref.read(configProvider), serverId).apiVersion);
+    });
+
 final Provider<StatsRepository> statsRepositoryProvider = Provider<StatsRepository>((ref) {
+  // Servers whose probed version is being written right now.
+  final Set<String> persisting = <String>{};
+
   return StatsRepository(
     getApiKey: ref.read(configProvider.notifier).getApiKey,
     apiFactory: (Server server, String apiKey) {
       final http.Client client = ref.read(httpClientProvider(server.id));
-      return PlausibleApiV2(client, server.baseUrl, apiKey);
+      return PlausibleApiWithFallback(
+        client,
+        server.baseUrl,
+        apiKey,
+        resolver: ref.read(apiVersionResolverProvider(server.id)),
+        isProxied: server.proxy != null,
+      );
+    },
+    onFetched: (Server server) {
+      // Against the live config rather than the snapshot the fetch carried:
+      // aggregate and timeseries settle a moment apart on the same probe, and
+      // both hold a snapshot from before it. The marker covers them settling
+      // close enough together that neither has seen the other's write yet.
+      // Read before the resolver, which throws for a server deleted mid-fetch
+      // and would turn a fetch that worked into an error.
+      final Server? current = _serverOrNull(ref.read(configProvider), server.id);
+      if (current == null) return;
+      final ApiVersion detected = ref.read(apiVersionResolverProvider(server.id)).version;
+      if (current.apiVersion == detected) return;
+      if (!persisting.add(server.id)) return;
+      // Fire and forget: the fetch that carried the probe has already
+      // answered, and this write only has to land before the app asks this
+      // server for anything else.
+      unawaited(
+        ref
+            .read(configProvider.notifier)
+            .updateServer(current.copyWith(apiVersion: detected))
+            .whenComplete(() => persisting.remove(server.id))
+            // A failed write is a no-op, not something to raise: nothing has
+            // been shown to the user yet, and the next probe derives the same
+            // answer again.
+            .onError<Object>((Object error, StackTrace stackTrace) {}),
+      );
     },
   );
 });
@@ -59,8 +120,8 @@ overviewProvider =
     FutureProvider.autoDispose
         .family<OverviewData, ({String serverId, String siteId, DateRangeSel range})>((ref, args) async {
           final ConfigState config = ref.watch(configProvider);
-          final Server server = config.servers.firstWhere((Server s) => s.id == args.serverId);
-          final Site site = config.sites.firstWhere((Site s) => s.id == args.siteId);
+          final Server server = _serverById(config, args.serverId);
+          final Site site = _siteById(config, args.siteId);
           final StatsRepository repository = ref.watch(statsRepositoryProvider);
 
           final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
@@ -84,8 +145,8 @@ breakdownProvider = FutureProvider.autoDispose
       args,
     ) async {
       final ConfigState config = ref.watch(configProvider);
-      final Server server = config.servers.firstWhere((Server s) => s.id == args.serverId);
-      final Site site = config.sites.firstWhere((Site s) => s.id == args.siteId);
+      final Server server = _serverById(config, args.serverId);
+      final Site site = _siteById(config, args.siteId);
       final StatsRepository repository = ref.watch(statsRepositoryProvider);
       return repository.breakdown(server, site, args.range, args.dimension);
     });
@@ -97,8 +158,8 @@ final AutoDisposeFutureProviderFamily<({int visitors, List<TimeseriesPoint> poin
 sitePreviewProvider = FutureProvider.autoDispose
     .family<({int visitors, List<TimeseriesPoint> points}), ({String serverId, String siteId})>((ref, args) async {
       final ConfigState config = ref.watch(configProvider);
-      final Server server = config.servers.firstWhere((Server s) => s.id == args.serverId);
-      final Site site = config.sites.firstWhere((Site s) => s.id == args.siteId);
+      final Server server = _serverById(config, args.serverId);
+      final Site site = _siteById(config, args.siteId);
       final StatsRepository repository = ref.watch(statsRepositoryProvider);
 
       final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
@@ -115,8 +176,8 @@ sitePreviewProvider = FutureProvider.autoDispose
 final AutoDisposeStreamProviderFamily<int, ({String serverId, String siteId})> realtimeProvider =
     StreamProvider.autoDispose.family<int, ({String serverId, String siteId})>((ref, args) {
       final ConfigState config = ref.watch(configProvider);
-      final Server server = config.servers.firstWhere((Server s) => s.id == args.serverId);
-      final Site site = config.sites.firstWhere((Site s) => s.id == args.siteId);
+      final Server server = _serverById(config, args.serverId);
+      final Site site = _siteById(config, args.siteId);
       final http.Client client = ref.watch(httpClientProvider(args.serverId));
       final ConfigNotifier notifier = ref.read(configProvider.notifier);
 
@@ -127,7 +188,12 @@ final AutoDisposeStreamProviderFamily<int, ({String serverId, String siteId})> r
         try {
           final String? apiKey = await notifier.getApiKey(server.id);
           if (apiKey == null) throw const UnauthorizedException();
-          final int visitors = await RealtimeApi(client, server.baseUrl, apiKey).currentVisitors(site.domain);
+          final int visitors = await RealtimeApi(
+            client,
+            server.baseUrl,
+            apiKey,
+            isProxied: server.proxy != null,
+          ).currentVisitors(site.domain);
           if (!controller.isClosed) controller.add(visitors);
         } catch (error, stackTrace) {
           // Keep the last value on the stream instead of erroring out, unless

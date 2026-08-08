@@ -30,16 +30,26 @@ class StatsRepository {
   StatsRepository({
     required Future<String?> Function(String serverId) getApiKey,
     required PlausibleApi Function(Server server, String apiKey) apiFactory,
+    void Function(Server server)? onFetched,
     DateTime Function() now = DateTime.now,
   }) : _getApiKey = getApiKey,
        _apiFactory = apiFactory,
+       _onFetched = onFetched,
        _now = now;
 
   final Future<String?> Function(String serverId) _getApiKey;
   final PlausibleApi Function(Server server, String apiKey) _apiFactory;
+  // Called once a server's fetches have gone quiet, if at least one of them
+  // reached the network. The API version probe rides on those fetches, so this
+  // is where its answer gets stored.
+  final void Function(Server server)? _onFetched;
   final DateTime Function() _now;
 
   final Map<_CacheKey, _CacheEntry> _cache = <_CacheKey, _CacheEntry>{};
+  // Loads still out per server, and the servers owed a report once theirs
+  // reach zero.
+  final Map<String, int> _inFlight = <String, int>{};
+  final Set<String> _reportWhenQuiet = <String>{};
 
   Future<AggregateStats> aggregate(
     Server server,
@@ -55,7 +65,7 @@ class StatsRepository {
       dimension: null,
       limit: null,
     );
-    return _cached(key, refresh, () async {
+    return _cached(server, key, refresh, () async {
       final PlausibleApi api = await _apiFor(server);
       return api.aggregate(site.domain, range);
     });
@@ -75,7 +85,7 @@ class StatsRepository {
       dimension: null,
       limit: null,
     );
-    return _cached(key, refresh, () async {
+    return _cached(server, key, refresh, () async {
       final PlausibleApi api = await _apiFor(server);
       return api.timeseries(site.domain, range);
     });
@@ -97,7 +107,7 @@ class StatsRepository {
       dimension: dimension,
       limit: limit,
     );
-    return _cached(key, refresh, () async {
+    return _cached(server, key, refresh, () async {
       final PlausibleApi api = await _apiFor(server);
       return api.breakdown(site.domain, range, dimension, limit: limit);
     });
@@ -111,16 +121,43 @@ class StatsRepository {
     );
   }
 
-  Future<T> _cached<T extends Object>(_CacheKey key, bool refresh, Future<T> Function() load) async {
+  Future<T> _cached<T extends Object>(
+    Server server,
+    _CacheKey key,
+    bool refresh,
+    Future<T> Function() load,
+  ) async {
     if (!refresh) {
       final _CacheEntry? entry = _cache[key];
       if (entry != null && _now().isBefore(entry.expiresAt)) {
         return entry.value as T;
       }
     }
-    final T value = await load();
-    _cache[key] = _CacheEntry(value, _now().add(_cacheTtl));
-    return value;
+    _inFlight[server.id] = (_inFlight[server.id] ?? 0) + 1;
+    try {
+      final T value = await load();
+      _cache[key] = _CacheEntry(value, _now().add(_cacheTtl));
+      _reportWhenQuiet.add(server.id);
+      return value;
+    } finally {
+      _settle(server);
+    }
+  }
+
+  /// Drops one in-flight load and reports the server once its last one lands.
+  ///
+  /// Waiting for quiet is the point. The report persists a probed API version,
+  /// which writes config and re-runs every stats provider; firing it while a
+  /// sibling of the same Future.wait is still out would restart that sibling as
+  /// a cache miss and double the requests the shared probe exists to save.
+  void _settle(Server server) {
+    final int left = (_inFlight[server.id] ?? 1) - 1;
+    if (left > 0) {
+      _inFlight[server.id] = left;
+      return;
+    }
+    _inFlight.remove(server.id);
+    if (_reportWhenQuiet.remove(server.id)) _onFetched?.call(server);
   }
 
   Future<PlausibleApi> _apiFor(Server server) async {

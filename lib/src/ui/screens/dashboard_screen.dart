@@ -92,6 +92,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               _RangeSelector(selected: _range, onSelected: _selectRange),
               const SizedBox(height: 16),
               overview.when(
+                // A refetch keeps the numbers on screen instead of dropping
+                // back to the skeleton: writing a freshly probed api version
+                // rebuilds this provider, and the dashboard shouldn't blink
+                // for it. A genuine first load has no value to keep, so it
+                // still gets the skeleton.
+                skipLoadingOnReload: true,
                 data: (OverviewData data) => _DashboardBody(
                   serverId: widget.serverId,
                   siteId: widget.siteId,
@@ -725,6 +731,9 @@ class _BreakdownList extends ConsumerWidget {
     final AsyncValue<List<BreakdownRow>> breakdown = ref.watch(breakdownProvider(args));
 
     return breakdown.when(
+      // As on the overview above: a config write shouldn't blank rows that are
+      // already on screen.
+      skipLoadingOnReload: true,
       data: (List<BreakdownRow> rows) =>
           _BreakdownRows(rows: rows, isCountry: dimension == BreakdownDimension.country),
       loading: () => const _BreakdownSkeleton(),

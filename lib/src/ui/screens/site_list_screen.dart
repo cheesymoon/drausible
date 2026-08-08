@@ -119,6 +119,10 @@ class _SitePreview extends ConsumerWidget {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
     return preview.when(
+      // Keep the sparkline and the count through a refetch. Persisting a
+      // freshly probed api version rebuilds every row at once, and blanking
+      // them all is the first thing a new server would show.
+      skipLoadingOnReload: true,
       data: (({int visitors, List<TimeseriesPoint> points}) data) => Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[

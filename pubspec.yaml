@@ -38,6 +38,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
   http: ^1.2.2
   intl: ^0.19.0
+  package_info_plus: ^8.3.1
   shared_preferences: ^2.5.3
   # 9.x is the last line that runs on Android 5 (v10 wants minSdk 23+)
   flutter_secure_storage: ^9.2.4

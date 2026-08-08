@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/server.dart';
 import '../../providers/config_providers.dart';
 import 'server_edit_screen.dart';
+import 'settings_screen.dart';
 import 'site_list_screen.dart';
 
 enum _ServerAction { edit, delete }
+enum _AppMenuAction { settings }
 
 class ServerListScreen extends ConsumerWidget {
   const ServerListScreen({super.key});
@@ -20,12 +22,21 @@ class ServerListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Drausible'),
         actions: <Widget>[
-          PopupMenuButton<void>(
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<void>>[
-              const PopupMenuItem<void>(
-                enabled: false,
-                child: Text('Settings'),
-              ),
+          PopupMenuButton<_AppMenuAction>(
+            onSelected: (_AppMenuAction action) {
+              switch (action) {
+                case _AppMenuAction.settings:
+                  unawaited(
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext context) => const SettingsScreen(),
+                      ),
+                    ),
+                  );
+              }
+            },
+            itemBuilder: (BuildContext context) => const <PopupMenuEntry<_AppMenuAction>>[
+              PopupMenuItem<_AppMenuAction>(value: _AppMenuAction.settings, child: Text('Settings')),
             ],
           ),
         ],

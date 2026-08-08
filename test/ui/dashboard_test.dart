@@ -186,6 +186,31 @@ void main() {
     expect(find.text('🇩🇪 Germany'), findsOneWidget);
   });
 
+  testWidgets('flicking the breakdown area moves to the next tab and back', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.page),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('/pricing', 340)])),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.source),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('Hacker News', 90)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    final Finder area = find.text('/pricing');
+    await tester.ensureVisible(area);
+    await tester.fling(area, const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hacker News'), findsOneWidget);
+
+    await tester.fling(find.text('Hacker News'), const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    expect(find.text('/pricing'), findsOneWidget);
+  });
+
   testWidgets('switching the Devices SegmentedButton queries the matching dimension', (WidgetTester tester) async {
     await _pump(tester, <Override>[
       overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),

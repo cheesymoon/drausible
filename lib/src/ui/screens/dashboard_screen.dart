@@ -587,7 +587,8 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
 
 /// TabBar for Pages/Sources/Countries/Devices. No TabBarView — the screen is
 /// one SingleChildScrollView, so only the selected tab's list is built below
-/// the bar, which is also what makes the other tabs' providers lazy.
+/// the bar, which is also what makes the other tabs' providers lazy. Swiping
+/// moves between them anyway.
 class _BreakdownTabs extends StatelessWidget {
   const _BreakdownTabs({required this.serverId, required this.siteId, required this.range});
 
@@ -596,6 +597,9 @@ class _BreakdownTabs extends StatelessWidget {
   final DateRangeSel range;
 
   static const List<String> _labels = <String>['Pages', 'Sources', 'Countries', 'Devices'];
+
+  /// Below this a horizontal drag is a stray thumb movement, not a flick.
+  static const double _swipeVelocity = 200;
 
   @override
   Widget build(BuildContext context) {
@@ -610,10 +614,33 @@ class _BreakdownTabs extends StatelessWidget {
             tabs: <Widget>[for (final String label in _labels) Tab(text: label)],
           ),
           const SizedBox(height: 12),
-          _SelectedBreakdownTab(serverId: serverId, siteId: siteId, range: range),
+          Builder(
+            builder: (BuildContext context) {
+              final TabController controller = DefaultTabController.of(context);
+              return GestureDetector(
+                // A flick, not a TabBarView: the screen is a single scroll
+                // view, so a TabBarView would need a fixed height and would
+                // give the tabs their own nested scrolling — and it would
+                // build all four, losing the laziness above. The page's
+                // vertical drags are untouched; the two axes don't compete.
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragEnd: (DragEndDetails details) => _swipe(controller, details),
+                child: _SelectedBreakdownTab(serverId: serverId, siteId: siteId, range: range),
+              );
+            },
+          ),
         ],
       ),
     );
+  }
+
+  static void _swipe(TabController controller, DragEndDetails details) {
+    final double velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < _swipeVelocity) return;
+    // Dragging left (negative) reveals the tab to the right, as the tab bar
+    // itself moves.
+    final int next = velocity < 0 ? controller.index + 1 : controller.index - 1;
+    if (next >= 0 && next < _labels.length) controller.animateTo(next);
   }
 }
 

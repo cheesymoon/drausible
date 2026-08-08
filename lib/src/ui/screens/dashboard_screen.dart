@@ -47,9 +47,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void _selectRange(DateRangeSel range) {
     setState(() => _range = range);
     // Presets persist; a fixed custom date pair would be stale next visit.
+    // Await the prefs future - right after startup valueOrNull can still be
+    // null and the write would silently vanish.
     final String? shorthand = range.v2Shorthand;
     if (shorthand != null) {
-      unawaited(ref.read(sharedPreferencesProvider).valueOrNull?.setString(_lastRangeKey, shorthand));
+      unawaited(
+        ref
+            .read(sharedPreferencesProvider.future)
+            .then((SharedPreferences prefs) => prefs.setString(_lastRangeKey, shorthand)),
+      );
     }
   }
 

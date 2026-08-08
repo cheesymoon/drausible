@@ -1,29 +1,25 @@
 // PlausibleApi over the v2 /api/v2/query endpoint (single query shape for
 // aggregate/timeseries/breakdown, distinguished by metrics/dimensions).
 
-import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
 import '../models/date_range.dart';
 import '../models/stats.dart';
 import 'api_exception.dart';
+import 'api_http.dart';
 import 'plausible_api.dart';
 
 class PlausibleApiV2 implements PlausibleApi {
-  PlausibleApiV2(this._client, Uri baseUrl, this._apiKey) : _queryUrl = _buildQueryUrl(baseUrl);
+  PlausibleApiV2(this._client, Uri baseUrl, this._apiKey, {bool isProxied = false})
+      : _queryUrl = joinApiPath(baseUrl, '/api/v2/query'),
+        _isProxied = isProxied;
 
   final http.Client _client;
   final String _apiKey;
   final Uri _queryUrl;
-
-  static Uri _buildQueryUrl(Uri baseUrl) {
-    final String base = baseUrl.toString();
-    final String trimmed = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
-    return Uri.parse('$trimmed/api/v2/query');
-  }
+  final bool _isProxied;
 
   @override
   Future<AggregateStats> aggregate(String siteId, DateRangeSel range) async {
@@ -111,20 +107,16 @@ class PlausibleApiV2 implements PlausibleApi {
     return _QueryResponse(response.statusCode, _decodeBody(response));
   }
 
-  Future<http.Response> _send(Map<String, dynamic> body) async {
-    try {
-      return await _client.post(
+  Future<http.Response> _send(Map<String, dynamic> body) {
+    return sendRequest(
+      _queryUrl,
+      isProxied: _isProxied,
+      send: () => _client.post(
         _queryUrl,
         headers: <String, String>{'Authorization': 'Bearer $_apiKey', 'Content-Type': 'application/json'},
         body: jsonEncode(body),
-      );
-    } on SocketException {
-      throw NetworkException(_queryUrl.host);
-    } on TimeoutException {
-      throw NetworkException(_queryUrl.host);
-    } on HandshakeException {
-      throw NetworkException(_queryUrl.host);
-    }
+      ),
+    );
   }
 
   Map<String, dynamic> _decodeBody(http.Response response) {

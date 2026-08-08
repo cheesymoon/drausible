@@ -8,11 +8,11 @@ import 'package:http/io_client.dart';
 import 'package:socks5_proxy/socks_client.dart';
 
 import '../models/server.dart';
+import 'api_http.dart';
 
-http.Client buildClientFor(Server server) {
-  final ProxyConfig? proxy = server.proxy;
+http.Client buildClientFor(ProxyConfig? proxy) {
   final HttpClient httpClient = HttpClient()
-    ..connectionTimeout = Duration(seconds: proxy == null ? 15 : 30);
+    ..connectionTimeout = requestTimeout(isProxied: proxy != null);
 
   if (proxy != null) {
     // ProxySettings wants an InternetAddress, not a hostname; the UI

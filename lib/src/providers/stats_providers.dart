@@ -23,14 +23,16 @@ final ProviderFamily<http.Client, String> httpClientProvider = Provider.family<h
   ref,
   serverId,
 ) {
-  // select() + Server's value equality keep the client alive across unrelated
-  // config edits; only a change to this server rebuilds (and closes) it.
-  final Server server = ref.watch(
+  // Narrowed to the proxy on purpose - it is all buildClientFor reads.
+  // Watching the whole Server would close this client on an edit that has
+  // nothing to do with the transport, and IOClient.close() aborts the
+  // requests it still has in flight.
+  final ProxyConfig? proxy = ref.watch(
     configProvider.select(
-      (ConfigState s) => s.servers.firstWhere((Server s) => s.id == serverId),
+      (ConfigState s) => s.servers.firstWhere((Server s) => s.id == serverId).proxy,
     ),
   );
-  final http.Client client = buildClientFor(server);
+  final http.Client client = buildClientFor(proxy);
   ref.onDispose(client.close);
   return client;
 });

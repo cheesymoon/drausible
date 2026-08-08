@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -101,6 +103,47 @@ void main() {
       expect(
         () => api.currentVisitors('example.com'),
         throwsA(isA<ServerException>().having((ServerException e) => e.statusCode, 'statusCode', 200)),
+      );
+    });
+
+    test('a thrown SocketException surfaces as a non-proxied NetworkException', () {
+      final MockClient client = MockClient((http.Request request) async {
+        throw const SocketException('connection refused');
+      });
+      final RealtimeApi api = RealtimeApi(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      expect(
+        () => api.currentVisitors('example.com'),
+        throwsA(isA<NetworkException>().having((NetworkException e) => e.isProxied, 'isProxied', false)),
+      );
+    });
+
+    test('a thrown ClientException surfaces as a NetworkException', () {
+      final MockClient client = MockClient((http.Request request) async {
+        throw http.ClientException('Connection closed before full header was received');
+      });
+      final RealtimeApi api = RealtimeApi(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      expect(
+        () => api.currentVisitors('example.com'),
+        throwsA(isA<NetworkException>().having((NetworkException e) => e.host, 'host', 'plausible.example.org')),
+      );
+    });
+
+    test('a proxied client flags the bare socks5_proxy Exception as proxied', () {
+      final MockClient client = MockClient((http.Request request) async {
+        throw Exception('Command handling failed. With error: hostUnreachable');
+      });
+      final RealtimeApi api = RealtimeApi(
+        client,
+        Uri.parse('https://plausible.example.org'),
+        'secret-key',
+        isProxied: true,
+      );
+
+      expect(
+        () => api.currentVisitors('example.com'),
+        throwsA(isA<NetworkException>().having((NetworkException e) => e.isProxied, 'isProxied', true)),
       );
     });
   });

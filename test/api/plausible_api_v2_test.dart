@@ -220,5 +220,54 @@ void main() {
         throwsA(isA<NetworkException>().having((NetworkException e) => e.isProxied, 'isProxied', false)),
       );
     });
+
+    test('a thrown ClientException surfaces as a NetworkException', () {
+      final MockClient client = MockClient((http.Request request) async {
+        throw http.ClientException('Connection closed before full header was received');
+      });
+      final PlausibleApiV2 api = PlausibleApiV2(
+        client,
+        Uri.parse('https://plausible.example.org'),
+        'secret-key',
+      );
+
+      expect(
+        () => api.aggregate('example.com', const DateRangeSel.d30()),
+        throwsA(isA<NetworkException>().having((NetworkException e) => e.host, 'host', 'plausible.example.org')),
+      );
+    });
+
+    test('the bare Exception socks5_proxy throws surfaces as a NetworkException', () {
+      final MockClient client = MockClient((http.Request request) async {
+        throw Exception('Command handling failed. With error: hostUnreachable');
+      });
+      final PlausibleApiV2 api = PlausibleApiV2(
+        client,
+        Uri.parse('https://plausible.example.org'),
+        'secret-key',
+      );
+
+      expect(
+        () => api.aggregate('example.com', const DateRangeSel.d30()),
+        throwsA(isA<NetworkException>()),
+      );
+    });
+
+    test('a proxied client flags its NetworkException as proxied', () {
+      final MockClient client = MockClient((http.Request request) async {
+        throw Exception('Command handling failed. With error: hostUnreachable');
+      });
+      final PlausibleApiV2 api = PlausibleApiV2(
+        client,
+        Uri.parse('https://plausible.example.org'),
+        'secret-key',
+        isProxied: true,
+      );
+
+      expect(
+        () => api.aggregate('example.com', const DateRangeSel.d30()),
+        throwsA(isA<NetworkException>().having((NetworkException e) => e.isProxied, 'isProxied', true)),
+      );
+    });
   });
 }

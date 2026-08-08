@@ -1,6 +1,6 @@
-// Stats API surface. PlausibleApiV2 is the only implementation today; a v1
-// fallback can implement the same interface once NotFoundEndpointException
-// drives that probing.
+// Stats API surface. Implemented twice: PlausibleApiV2 over /api/v2/query, and
+// PlausibleApiV1 over the legacy /api/v1/stats/* routes for servers too old to
+// have the v2 one. NotFoundEndpointException is what picks between them.
 
 import '../models/date_range.dart';
 import '../models/stats.dart';

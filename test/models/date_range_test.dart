@@ -27,6 +27,11 @@ void main() {
         expect(range.timeDimension, timeDimension);
         expect(range.label(), label);
       });
+
+      test('$shorthand sends the same string as a v1 period, with no date', () {
+        expect(range.v1Period, shorthand);
+        expect(range.v1Date, isNull);
+      });
     }
   });
 
@@ -36,6 +41,11 @@ void main() {
     test('has no shorthand and sends a zero-padded ISO pair', () {
       expect(range.v2Shorthand, isNull);
       expect(range.v2DateRange, <String>['2024-01-03', '2024-02-07']);
+    });
+
+    test('sends the v1 period keyword and a comma-joined ISO pair', () {
+      expect(range.v1Period, 'custom');
+      expect(range.v1Date, '2024-01-03,2024-02-07');
     });
 
     test('uses the plain time dimension', () {
@@ -49,6 +59,7 @@ void main() {
     test('zero-pads single-digit month and day', () {
       final DateRangeSel earlyRange = DateRangeSel.custom(DateTime(2024, 3, 5), DateTime(2024, 3, 9));
       expect(earlyRange.v2DateRange, <String>['2024-03-05', '2024-03-09']);
+      expect(earlyRange.v1Date, '2024-03-05,2024-03-09');
     });
   });
 
@@ -85,6 +96,44 @@ void main() {
       expect(dt.year, 2024);
       expect(dt.month, 2);
       expect(dt.day, 1);
+    });
+
+    test('parses an hourly label whose clock parts are not padded', () {
+      final DateTime dt = range.parseTimeLabel('2024-01-15 14:0:0');
+      expect(dt.year, 2024);
+      expect(dt.month, 1);
+      expect(dt.day, 15);
+      expect(dt.hour, 14);
+      expect(dt.minute, 0);
+    });
+
+    test('parses a date whose month and day are not padded', () {
+      final DateTime dt = range.parseTimeLabel('2024-1-5');
+      expect(dt.year, 2024);
+      expect(dt.month, 1);
+      expect(dt.day, 5);
+    });
+
+    test('throws a FormatException naming the label it choked on', () {
+      expect(
+        () => range.parseTimeLabel('last tuesday'),
+        throwsA(
+          isA<FormatException>().having((FormatException e) => e.source, 'source', 'last tuesday'),
+        ),
+      );
+    });
+
+    test('throws on an impossible date instead of rolling it over', () {
+      // Bare DateTime() would answer 2025-02-14 and 2024-03-02 for these.
+      expect(() => range.parseTimeLabel('2024-13-45'), throwsFormatException);
+      expect(() => range.parseTimeLabel('2024-02-31'), throwsFormatException);
+      expect(() => range.parseTimeLabel('2024-01-15 25:00'), throwsFormatException);
+    });
+
+    test('accepts the 29th of a leap February', () {
+      final DateTime dt = range.parseTimeLabel('2024-2-29');
+      expect(dt.month, 2);
+      expect(dt.day, 29);
     });
   });
 

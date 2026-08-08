@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "country": "US",
+      "visitors": 532
+    },
+    {
+      "country": "DE",
+      "visitors": 210
+    },
+    {
+      "country": "GB",
+      "visitors": 98
+    }
+  ]
+}

@@ -6,7 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/id.dart';
 import '../../models/server.dart';
+import '../../models/site.dart';
 import '../../providers/config_providers.dart';
+import '../../providers/stats_providers.dart';
+import '../../repositories/config_repository.dart';
+import '../../repositories/stats_repository.dart';
 
 /// Create mode when server is null, edit mode (prefilled) otherwise.
 class ServerEditScreen extends ConsumerStatefulWidget {
@@ -130,6 +134,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
+            if (_isEditing) _buildApiVersionRow(),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : () => unawaited(_save()),
@@ -138,6 +143,64 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Edit mode only. The version is read off the live config rather than the
+  /// server this screen opened with, so one detected while the screen sits
+  /// open shows up here.
+  Widget _buildApiVersionRow() {
+    final Server server = widget.server!;
+    final ApiVersion version = ref.watch(
+      configProvider.select(
+        (ConfigState config) => config.servers
+            .firstWhere((Server s) => s.id == server.id, orElse: () => server)
+            .apiVersion,
+      ),
+    );
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Stats API'),
+      subtitle: Text(_versionLabel(version)),
+      trailing: TextButton(
+        onPressed: () => unawaited(_reCheck(server.id)),
+        child: const Text('Re-check'),
+      ),
+    );
+  }
+
+  static String _versionLabel(ApiVersion version) => switch (version) {
+    ApiVersion.v2 => 'Version 2',
+    ApiVersion.v1 => 'Version 1, as older servers use',
+    ApiVersion.unknown => 'Not detected yet',
+  };
+
+  /// Forgets the detected version. Nothing goes out over the network here; the
+  /// next stats load works it out again.
+  Future<void> _reCheck(String serverId) async {
+    final ConfigState config = ref.read(configProvider);
+    final Server current = config.servers.firstWhere(
+      (Server s) => s.id == serverId,
+      orElse: () => widget.server!,
+    );
+
+    // The write has to land before the invalidate: the resolver seeds itself
+    // from the config it is built with, so dropping it first would only bring
+    // back the version we are trying to forget.
+    await ref.read(configProvider.notifier).updateServer(current.copyWith(apiVersion: ApiVersion.unknown));
+    if (!mounted) return;
+    ref.invalidate(apiVersionResolverProvider(serverId));
+
+    // Whatever is still in the 60s cache was fetched through the old version,
+    // and a cache hit never reaches the resolver at all.
+    final StatsRepository repository = ref.read(statsRepositoryProvider);
+    for (final Site site in config.sites.where((Site s) => s.serverId == serverId)) {
+      repository.evictSite(serverId, site.domain);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cleared — the next stats load detects it again.')),
     );
   }
 
@@ -186,13 +249,20 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
       );
       await notifier.addServer(server, apiKey!);
     } else {
+      // A different host is a different server: what the old one spoke says
+      // nothing about this one.
+      final bool hostChanged = baseUrl != existing.baseUrl;
       final Server server = existing.copyWith(
         name: _nameController.text.trim(),
         baseUrl: baseUrl,
         proxy: proxy,
         clearProxy: proxy == null,
+        apiVersion: hostChanged ? ApiVersion.unknown : null,
       );
       await notifier.updateServer(server, apiKey: apiKey);
+      // The resolver holds the old host's answer in memory for the app's
+      // lifetime, so the reset above would never be read without this.
+      if (hostChanged && mounted) ref.invalidate(apiVersionResolverProvider(existing.id));
     }
 
     if (!mounted) return;

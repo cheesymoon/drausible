@@ -88,6 +88,25 @@ breakdownProvider = FutureProvider.autoDispose
       return repository.breakdown(server, site, args.range, args.dimension);
     });
 
+/// Today's visitor count and hourly points for a site row's sparkline
+/// preview. Same "day" range as the dashboard's Today chip, so it rides the
+/// same 60s repo cache when a user opens that site next.
+final AutoDisposeFutureProviderFamily<({int visitors, List<TimeseriesPoint> points}), ({String serverId, String siteId})>
+sitePreviewProvider = FutureProvider.autoDispose
+    .family<({int visitors, List<TimeseriesPoint> points}), ({String serverId, String siteId})>((ref, args) async {
+      final ConfigState config = ref.watch(configProvider);
+      final Server server = config.servers.firstWhere((Server s) => s.id == args.serverId);
+      final Site site = config.sites.firstWhere((Site s) => s.id == args.siteId);
+      final StatsRepository repository = ref.watch(statsRepositoryProvider);
+
+      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
+        repository.aggregate(server, site, const DateRangeSel.day()),
+        repository.timeseries(server, site, const DateRangeSel.day()),
+      ]);
+
+      return (visitors: (results[0] as AggregateStats).visitors, points: results[1] as List<TimeseriesPoint>);
+    });
+
 /// Current visitor count, polled every 30s. Only the first fetch failing
 /// surfaces as a stream error — later failed ticks are skipped so the UI
 /// keeps showing the last known value instead of blanking out.

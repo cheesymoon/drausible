@@ -2,15 +2,15 @@
   "results": [
     {
       "metrics": [532],
-      "dimensions": ["United States"]
+      "dimensions": ["US"]
     },
     {
       "metrics": [210],
-      "dimensions": ["Germany"]
+      "dimensions": ["DE"]
     },
     {
       "metrics": [98],
-      "dimensions": ["United Kingdom"]
+      "dimensions": ["GB"]
     }
   ],
   "meta": {}

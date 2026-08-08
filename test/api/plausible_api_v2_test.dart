@@ -152,7 +152,7 @@ void main() {
         }),
       );
       expect(rows, hasLength(3));
-      expect(rows[0].name, 'United States');
+      expect(rows[0].name, 'US');
       expect(rows[0].visitors, 532);
     });
   });

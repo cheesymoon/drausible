@@ -585,10 +585,15 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
   }
 }
 
+/// Wraps the selected tab's content, so a test can measure its height.
+@visibleForTesting
+const Key breakdownTabContentKey = Key('breakdown-tab-content');
+
 /// TabBar for Pages/Sources/Countries/Devices. No TabBarView — the screen is
 /// one SingleChildScrollView, so only the selected tab's list is built below
 /// the bar, which is also what makes the other tabs' providers lazy. Swiping
-/// moves between them anyway.
+/// moves between them anyway, and the content sits on a minimum height so
+/// switching doesn't jolt the page.
 class _BreakdownTabs extends StatelessWidget {
   const _BreakdownTabs({required this.serverId, required this.siteId, required this.range});
 
@@ -597,6 +602,10 @@ class _BreakdownTabs extends StatelessWidget {
   final DateRangeSel range;
 
   static const List<String> _labels = <String>['Pages', 'Sources', 'Countries', 'Devices'];
+
+  /// Roughly five rows. The tabs hold very different row counts, so without a
+  /// floor the page lurches every time you switch to a shorter one.
+  static const double _minTabHeight = 190;
 
   /// Below this a horizontal drag is a stray thumb movement, not a flick.
   static const double _swipeVelocity = 200;
@@ -625,7 +634,19 @@ class _BreakdownTabs extends StatelessWidget {
                 // vertical drags are untouched; the two axes don't compete.
                 behavior: HitTestBehavior.opaque,
                 onHorizontalDragEnd: (DragEndDetails details) => _swipe(controller, details),
-                child: _SelectedBreakdownTab(serverId: serverId, siteId: siteId, range: range),
+                // Tabs still differ in height once past the floor, so the
+                // remaining change is glided rather than snapped. Anchored at
+                // the top, so the rows stay put and only the bottom edge moves.
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOut,
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    key: breakdownTabContentKey,
+                    constraints: const BoxConstraints(minHeight: _minTabHeight),
+                    child: _SelectedBreakdownTab(serverId: serverId, siteId: siteId, range: range),
+                  ),
+                ),
               );
             },
           ),

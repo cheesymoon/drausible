@@ -211,6 +211,53 @@ void main() {
     expect(find.text('/pricing'), findsOneWidget);
   });
 
+  testWidgets('the tab height glides between two differently sized tabs', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith(
+        (Ref ref) async =>
+            fakeRows(<(String, int)>[for (int i = 0; i < 10; i++) ('/page$i', 100 - i)]),
+      ),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.source),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('Direct / None', 5)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    final Finder box = find.ancestor(
+      of: find.byKey(breakdownTabContentKey),
+      matching: find.byType(AnimatedSize),
+    );
+    final double tall = tester.getSize(box).height;
+
+    await tester.ensureVisible(find.text('Sources'));
+    await tester.tap(find.text('Sources'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 110));
+    final double midway = tester.getSize(box).height;
+
+    await tester.pumpAndSettle();
+    final double short = tester.getSize(box).height;
+
+    expect(short, lessThan(tall));
+    // Caught partway down rather than already arrived.
+    expect(midway, greaterThan(short));
+    expect(midway, lessThan(tall));
+  });
+
+  testWidgets('a short breakdown still fills the minimum tab height', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.page),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('/', 10)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    // One row is far shorter than the floor, so the floor is what shows.
+    expect(tester.getSize(find.byKey(breakdownTabContentKey)).height, greaterThanOrEqualTo(190.0));
+  });
+
   testWidgets('switching the Devices SegmentedButton queries the matching dimension', (WidgetTester tester) async {
     await _pump(tester, <Override>[
       overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),

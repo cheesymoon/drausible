@@ -78,7 +78,7 @@ Future<ProviderContainer> _container({
     overrides: <Override>[keyStoreProvider.overrideWithValue(keyStore), ...overrides],
   );
   addTearDown(container.dispose);
-  // configProvider reads the repository through valueOrNull — until this
+  // configProvider reads the repository through valueOrNull. Until this
   // resolves the config is still empty.
   await container.read(configRepositoryProvider.future);
   return container;
@@ -86,6 +86,98 @@ Future<ProviderContainer> _container({
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('RateLimitGate suspends a tripped server until its cooldown lapses', () {
+    DateTime now = DateTime(2026);
+    final RateLimitGate gate = RateLimitGate(now: () => now);
+
+    expect(gate.isSuspended('srv1'), isFalse);
+
+    gate.trip('srv1');
+
+    expect(gate.isSuspended('srv1'), isTrue);
+    expect(gate.isSuspended('srv2'), isFalse);
+
+    now = now.add(RateLimitGate.cooldown);
+
+    expect(gate.isSuspended('srv1'), isFalse);
+  });
+
+  test('a stats fetch that is rate limited trips the gate and still throws', () async {
+    final MockClient client = MockClient((http.Request request) async => http.Response('{}', 429));
+    final ProviderContainer container = await _container(
+      overrides: <Override>[httpClientProvider('srv1').overrideWithValue(client)],
+      apiVersion: ApiVersion.v2,
+    );
+
+    await expectLater(
+      container.read(statsRepositoryProvider).aggregate(_server, _site, const DateRangeSel.day()),
+      throwsA(isA<RateLimitedException>()),
+    );
+
+    expect(container.read(rateLimitGateProvider).isSuspended('srv1'), isTrue);
+  });
+
+  test('realtimeProvider skips the first poll while the server is suspended', () async {
+    final RateLimitGate gate = RateLimitGate()..trip('srv1');
+    final List<http.Request> requests = <http.Request>[];
+    final MockClient client = MockClient((http.Request request) async {
+      requests.add(request);
+      return http.Response('0', 200);
+    });
+    final ProviderContainer container = await _container(
+      overrides: <Override>[
+        rateLimitGateProvider.overrideWithValue(gate),
+        httpClientProvider('srv1').overrideWithValue(client),
+      ],
+    );
+
+    final ProviderSubscription<AsyncValue<int>> subscription = container.listen(
+      realtimeProvider((serverId: 'srv1', siteId: 'site1')),
+      (AsyncValue<int>? previous, AsyncValue<int> next) {},
+    );
+    addTearDown(subscription.close);
+    await pumpEventQueue();
+
+    expect(requests, isEmpty);
+    // Skipped quietly, the badge would keep whatever it last showed.
+    expect(container.read(realtimeProvider((serverId: 'srv1', siteId: 'site1'))).hasError, isTrue);
+  });
+
+  // Fake time, so the 30s tick can be reached without waiting for it.
+  testWidgets('a rate limited tick reaches the stream, unlike other late failures', (
+    WidgetTester tester,
+  ) async {
+    int calls = 0;
+    final MockClient client = MockClient((http.Request request) async {
+      calls++;
+      if (calls == 1) return http.Response('7', 200);
+      return http.Response('{}', 429);
+    });
+    final ProviderContainer container = await _container(
+      overrides: <Override>[httpClientProvider('srv1').overrideWithValue(client)],
+    );
+    const ({String serverId, String siteId}) args = (serverId: 'srv1', siteId: 'site1');
+    final ProviderSubscription<AsyncValue<int>> subscription = container.listen(
+      realtimeProvider(args),
+      (AsyncValue<int>? previous, AsyncValue<int> next) {},
+    );
+
+    await tester.pump();
+    expect(container.read(realtimeProvider(args)).valueOrNull, 7);
+
+    await tester.pump(const Duration(seconds: 30));
+    await tester.pump();
+
+    expect(container.read(realtimeProvider(args)).hasError, isTrue);
+    expect(container.read(rateLimitGateProvider).isSuspended('srv1'), isTrue);
+
+    // Dropping the last listener is what cancels the polling timer, and that
+    // has to happen inside the test: the container's teardown runs after the
+    // binding has already checked for stray timers.
+    subscription.close();
+    await tester.idle();
+  });
 
   test('a probed v2 is persisted once, and the re-run rides the cache', () async {
     final List<http.Request> requests = <http.Request>[];
@@ -110,7 +202,7 @@ void main() {
     expect(container.read(configProvider).servers.single.apiVersion, ApiVersion.v2);
     // Aggregate and timeseries both settle on the same probe; only one writes.
     expect(configWrites, 1);
-    // Probe, aggregate, timeseries — and nothing more, because the re-run the
+    // Probe, aggregate, timeseries, and nothing more, because the re-run the
     // write set off is served by the 60s cache.
     expect(requests, hasLength(3));
   });

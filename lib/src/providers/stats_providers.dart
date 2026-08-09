@@ -1,4 +1,4 @@
-// Riverpod wiring for the stats domain. No codegen — plain providers.
+// Riverpod wiring for the stats domain. No codegen, just plain providers.
 
 import 'dart:async';
 
@@ -18,7 +18,7 @@ import '../repositories/stats_repository.dart';
 import 'config_providers.dart';
 
 // A server or site can be deleted while a provider keyed by its id is still
-// alive — a dashboard mid-refresh, a preview still loading. Plain firstWhere
+// alive: a dashboard mid-refresh, a preview still loading. Plain firstWhere
 // answers that with a bare StateError; these say what went missing.
 Server? _serverOrNull(ConfigState config, String serverId) {
   for (final Server server in config.servers) {
@@ -41,7 +41,7 @@ final ProviderFamily<http.Client, String> httpClientProvider = Provider.family<h
   ref,
   serverId,
 ) {
-  // Narrowed to the proxy on purpose — it is all buildClientFor reads.
+  // Narrowed to the proxy on purpose, since it is all buildClientFor reads.
   // Watching the whole Server would close this client when a rename, or a
   // freshly probed api version, is written, and IOClient.close() aborts the
   // requests it still has in flight.
@@ -63,6 +63,30 @@ final ProviderFamily<ApiVersionResolver, String> apiVersionResolverProvider =
       return ApiVersionResolver(_serverById(ref.read(configProvider), serverId).apiVersion);
     });
 
+/// Servers that have answered 429, and when they may be asked again. Plausible
+/// allows 600 requests an hour and the realtime badge alone spends 120 of them,
+/// so polling straight through a 429 keeps the account locked out for longer.
+/// Any fetch that hits the limit trips this; it lapses on its own.
+class RateLimitGate {
+  RateLimitGate({DateTime Function() now = DateTime.now}) : _now = now;
+
+  static const Duration cooldown = Duration(minutes: 10);
+
+  final DateTime Function() _now;
+  final Map<String, DateTime> _suspendedUntil = <String, DateTime>{};
+
+  void trip(String serverId) {
+    _suspendedUntil[serverId] = _now().add(cooldown);
+  }
+
+  bool isSuspended(String serverId) {
+    final DateTime? until = _suspendedUntil[serverId];
+    return until != null && _now().isBefore(until);
+  }
+}
+
+final Provider<RateLimitGate> rateLimitGateProvider = Provider<RateLimitGate>((ref) => RateLimitGate());
+
 final Provider<StatsRepository> statsRepositoryProvider = Provider<StatsRepository>((ref) {
   // Servers whose probed version is being written right now.
   final Set<String> persisting = <String>{};
@@ -79,6 +103,7 @@ final Provider<StatsRepository> statsRepositoryProvider = Provider<StatsReposito
         isProxied: server.proxy != null,
       );
     },
+    onRateLimited: (Server server) => ref.read(rateLimitGateProvider).trip(server.id),
     onFetched: (Server server) {
       // Against the live config rather than the snapshot the fetch carried:
       // aggregate and timeseries settle a moment apart on the same probe, and
@@ -171,8 +196,10 @@ sitePreviewProvider = FutureProvider.autoDispose
     });
 
 /// Current visitor count, polled every 30s. Only the first fetch failing
-/// surfaces as a stream error — later failed ticks are skipped so the UI
-/// keeps showing the last known value instead of blanking out.
+/// surfaces as a stream error. Later failed ticks are skipped so the UI
+/// keeps showing the last known value instead of blanking out. Being rate
+/// limited is the exception: polling stops for the cooldown, and a count nobody
+/// is refreshing would sit there looking live for ten minutes.
 final AutoDisposeStreamProviderFamily<int, ({String serverId, String siteId})> realtimeProvider =
     StreamProvider.autoDispose.family<int, ({String serverId, String siteId})>((ref, args) {
       final ConfigState config = ref.watch(configProvider);
@@ -180,11 +207,18 @@ final AutoDisposeStreamProviderFamily<int, ({String serverId, String siteId})> r
       final Site site = _siteById(config, args.siteId);
       final http.Client client = ref.watch(httpClientProvider(args.serverId));
       final ConfigNotifier notifier = ref.read(configProvider.notifier);
+      final RateLimitGate gate = ref.read(rateLimitGateProvider);
 
       final StreamController<int> controller = StreamController<int>();
       bool first = true;
 
       Future<void> poll() async {
+        if (gate.isSuspended(server.id)) {
+          // Tripped by any 429 on this server, so this skips ticks over a limit
+          // a dashboard fetch ran into as much as one of its own.
+          if (!controller.isClosed) controller.addError(const RateLimitedException(), StackTrace.empty);
+          return;
+        }
         try {
           final String? apiKey = await notifier.getApiKey(server.id);
           if (apiKey == null) throw const UnauthorizedException();
@@ -196,9 +230,11 @@ final AutoDisposeStreamProviderFamily<int, ({String serverId, String siteId})> r
           ).currentVisitors(site.domain);
           if (!controller.isClosed) controller.add(visitors);
         } catch (error, stackTrace) {
+          final bool rateLimited = error is RateLimitedException;
+          if (rateLimited) gate.trip(server.id);
           // Keep the last value on the stream instead of erroring out, unless
           // this was the very first fetch and there's no last value to show.
-          if (first && !controller.isClosed) controller.addError(error, stackTrace);
+          if ((first || rateLimited) && !controller.isClosed) controller.addError(error, stackTrace);
         }
         first = false;
       }

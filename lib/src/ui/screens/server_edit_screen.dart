@@ -200,7 +200,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cleared — the next stats load detects it again.')),
+      const SnackBar(content: Text('Cleared. The next stats load detects it again.')),
     );
   }
 

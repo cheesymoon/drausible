@@ -22,7 +22,7 @@ class ConfigState {
   final List<Site> sites;
 }
 
-/// Minimal secure key/value interface so tests can fake it — flutter_secure_storage
+/// Minimal secure key/value interface so tests can fake it. flutter_secure_storage
 /// has no official mock and hits a platform channel.
 abstract class KeyStore {
   Future<String?> read(String key);

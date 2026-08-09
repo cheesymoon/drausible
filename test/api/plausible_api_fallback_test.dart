@@ -109,7 +109,7 @@ void main() {
         throwsA(isA<NotFoundEndpointException>()),
       );
 
-      // A 404 on its own never pins v1 — v1 has to answer for real first.
+      // A 404 on its own never pins v1. v1 has to answer for real first.
       expect(resolver.version, ApiVersion.unknown);
       expect(requests, hasLength(2));
     });

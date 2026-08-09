@@ -1,4 +1,4 @@
-// Domain shapes for Plausible stats — decoupled from the v2 JSON wire format.
+// Domain shapes for Plausible stats, decoupled from the v2 JSON wire format.
 
 class AggregateStats {
   AggregateStats({

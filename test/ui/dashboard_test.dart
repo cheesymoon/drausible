@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,12 +7,26 @@ import 'package:intl/intl.dart';
 
 import 'package:drausible/src/api/api_exception.dart';
 import 'package:drausible/src/models/date_range.dart';
+import 'package:drausible/src/models/server.dart';
 import 'package:drausible/src/models/stats.dart';
+import 'package:drausible/src/providers/config_providers.dart';
 import 'package:drausible/src/providers/stats_providers.dart';
+import 'package:drausible/src/repositories/config_repository.dart';
 import 'package:drausible/src/ui/screens/dashboard_screen.dart';
+import 'package:drausible/src/ui/screens/server_edit_screen.dart';
 
 const String _serverId = 'srv1';
 const String _siteId = 'site1';
+
+/// Stands in for the stored config, so an error can find the server it
+/// belongs to. The other tests leave it empty, which is what a server deleted
+/// under an open dashboard looks like.
+class _StoredConfig extends ConfigNotifier {
+  @override
+  ConfigState build() => ConfigState(
+    servers: <Server>[Server(id: _serverId, name: 'My server', baseUrl: Uri.parse('https://plausible.example.org'))],
+  );
+}
 
 OverviewData _fakeOverview({int visitors = 1423, int pageviews = 3200}) {
   return OverviewData(
@@ -23,6 +39,17 @@ OverviewData _fakeOverview({int visitors = 1423, int pageviews = 3200}) {
     timeseries: <TimeseriesPoint>[
       TimeseriesPoint(time: DateTime(2026, 7, 1), visitors: 10),
       TimeseriesPoint(time: DateTime(2026, 7, 2), visitors: 20),
+    ],
+  );
+}
+
+/// A range the site was live through with nothing to show for it.
+OverviewData _zeroOverview() {
+  return OverviewData(
+    aggregate: AggregateStats(visitors: 0, pageviews: 0, bounceRate: 0, visitDurationSeconds: 0),
+    timeseries: <TimeseriesPoint>[
+      TimeseriesPoint(time: DateTime(2026, 7, 1), visitors: 0),
+      TimeseriesPoint(time: DateTime(2026, 7, 2), visitors: 0),
     ],
   );
 }
@@ -146,12 +173,33 @@ void main() {
       )).overrideWith((Ref ref) => Stream<int>.value(23)),
     ]);
     // The dot pulses forever once a value arrives, so pumpAndSettle would
-    // time out here — pump a fixed number of frames instead.
+    // time out here, so pump a fixed number of frames instead.
     await tester.pump();
     await tester.pump();
     await tester.pump();
 
     expect(find.text('23'), findsOneWidget);
+  });
+
+  testWidgets('the badge drops its count when polling stops on a rate limit', (WidgetTester tester) async {
+    final StreamController<int> live = StreamController<int>();
+    addTearDown(live.close);
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
+      realtimeProvider((serverId: _serverId, siteId: _siteId)).overrideWith((Ref ref) => live.stream),
+    ]);
+    live.add(23);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('23'), findsOneWidget);
+
+    live.addError(const RateLimitedException());
+    await tester.pump();
+    await tester.pump();
+
+    // A count nothing is refreshing is worse than no count at all.
+    expect(find.text('23'), findsNothing);
   });
 
   testWidgets('the Pages tab renders breakdown rows with their counts', (WidgetTester tester) async {
@@ -306,5 +354,61 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('/blog'), findsOneWidget);
+  });
+
+  testWidgets('a failure through a proxy blames the proxy and names Orbot', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(
+        args30,
+      ).overrideWith((Ref ref) async => throw const NetworkException('example.onion', isProxied: true)),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not reach example.onion through the proxy'), findsOneWidget);
+    expect(find.textContaining('Orbot'), findsOneWidget);
+  });
+
+  testWidgets('a rejected key opens the server settings from the error', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      configProvider.overrideWith(_StoredConfig.new),
+      overviewProvider(args30).overrideWith((Ref ref) async => throw const UnauthorizedException()),
+    ]);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Edit server'));
+    await tester.tap(find.widgetWithText(TextButton, 'Edit server'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ServerEditScreen), findsOneWidget);
+  });
+
+  testWidgets('no edit shortcut when the server is no longer in the config', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => throw const UnauthorizedException()),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('API key rejected'), findsOneWidget);
+    expect(find.text('Edit server'), findsNothing);
+  });
+
+  testWidgets('an all-zero range explains that the domain has to match', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _zeroOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('the one in Plausible'), findsOneWidget);
+  });
+
+  testWidgets('any traffic at all keeps the empty-data hint away', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('the one in Plausible'), findsNothing);
   });
 }

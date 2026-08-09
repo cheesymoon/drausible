@@ -84,7 +84,7 @@ void main() {
 
     final Finder tile = find.byType(ListTile);
     expect(tile, findsOneWidget);
-    // Only the title Text remains — no count rendered while the preview loads.
+    // Only the title Text remains, with no count rendered while the preview loads.
     expect(find.descendant(of: tile, matching: find.byType(Text)), findsOneWidget);
   });
 

@@ -31,10 +31,12 @@ class StatsRepository {
     required Future<String?> Function(String serverId) getApiKey,
     required PlausibleApi Function(Server server, String apiKey) apiFactory,
     void Function(Server server)? onFetched,
+    void Function(Server server)? onRateLimited,
     DateTime Function() now = DateTime.now,
   }) : _getApiKey = getApiKey,
        _apiFactory = apiFactory,
        _onFetched = onFetched,
+       _onRateLimited = onRateLimited,
        _now = now;
 
   final Future<String?> Function(String serverId) _getApiKey;
@@ -43,6 +45,7 @@ class StatsRepository {
   // reached the network. The API version probe rides on those fetches, so this
   // is where its answer gets stored.
   final void Function(Server server)? _onFetched;
+  final void Function(Server server)? _onRateLimited;
   final DateTime Function() _now;
 
   final Map<_CacheKey, _CacheEntry> _cache = <_CacheKey, _CacheEntry>{};
@@ -139,6 +142,9 @@ class StatsRepository {
       _cache[key] = _CacheEntry(value, _now().add(_cacheTtl));
       _reportWhenQuiet.add(server.id);
       return value;
+    } on RateLimitedException {
+      _onRateLimited?.call(server);
+      rethrow;
     } finally {
       _settle(server);
     }

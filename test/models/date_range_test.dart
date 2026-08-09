@@ -53,7 +53,7 @@ void main() {
     });
 
     test('formats a short date-to-date label', () {
-      expect(range.label(), '3 Jan – 7 Feb');
+      expect(range.label(), '3 Jan - 7 Feb');
     });
 
     test('zero-pads single-digit month and day', () {

@@ -58,7 +58,7 @@ class PlausibleApiV1 implements PlausibleApi {
       for (final dynamic row in results) {
         if (row is! Map<String, dynamic>) continue;
         final DateTime? time = _time(range, row['date']);
-        // Nothing to plot a point against, so it goes — the rest of the chart
+        // Nothing to plot a point against, so it goes. The rest of the chart
         // shouldn't fall over one unreadable bucket.
         if (time == null) continue;
         points.add(TimeseriesPoint(time: time, visitors: _count(row['visitors'])));
@@ -104,7 +104,7 @@ class PlausibleApiV1 implements PlausibleApi {
   }
 
   // Aggregate results are keyed by metric name rather than positional as in
-  // v2, so they are read by key — the order is not guaranteed. A range with no
+  // v2, so they are read by key. The order is not guaranteed. A range with no
   // traffic can report a metric as null or leave it out; both mean 0.
   num _metric(Map<String, dynamic> results, String name) {
     final dynamic metric = results[name];
@@ -117,7 +117,7 @@ class PlausibleApiV1 implements PlausibleApi {
   // back with visitors null or missing, and both mean 0.
   int _count(dynamic value) => value is num ? value.toInt() : 0;
 
-  // Null, missing, or not a date at all — the caller drops the row instead of
+  // Null, missing, or not a date at all, so the caller drops the row instead of
   // losing the whole series to it.
   DateTime? _time(DateRangeSel range, dynamic value) {
     if (value is! String) return null;

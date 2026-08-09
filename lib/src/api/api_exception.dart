@@ -37,7 +37,7 @@ class RateLimitedException extends ApiException {
   String get message => 'Rate limited by server';
 }
 
-/// 404 on the API route itself (not a 404 the app expected) — signals the
+/// 404 on the API route itself (not a 404 the app expected). Signals the
 /// server doesn't speak this API version, driving v1 fallback probing.
 class NotFoundEndpointException extends ApiException {
   const NotFoundEndpointException();
@@ -58,7 +58,7 @@ class ServerException extends ApiException {
 }
 
 /// Throws the [ApiException] matching a non-2xx status code. Does nothing
-/// for a 2xx status — callers still need to parse the body themselves.
+/// for a 2xx status, so callers still need to parse the body themselves.
 void throwForStatusCode(int statusCode) {
   switch (statusCode) {
     case 401:

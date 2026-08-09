@@ -260,7 +260,7 @@ class _AddSiteDialogState extends State<_AddSiteDialog> {
               decoration: const InputDecoration(
                 labelText: 'Domain',
                 hintText: 'example.com',
-                helperText: 'Exactly as it appears in your Plausible dashboard —\n'
+                helperText: 'Exactly as it appears in your Plausible dashboard:\n'
                     'the part after the host in its URL, e.g. /example.com.\n'
                     'It can differ from the server\'s own domain.',
                 helperMaxLines: 3,

@@ -6,13 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../api/api_exception.dart';
 import '../../models/date_range.dart';
+import '../../models/server.dart';
 import '../../models/site.dart';
 import '../../models/stats.dart';
 import '../../providers/config_providers.dart';
 import '../../providers/stats_providers.dart';
 import '../../util/countries.dart';
+import '../widgets/error_view.dart';
+import 'server_edit_screen.dart';
 
 typedef _OverviewArgs = ({String serverId, String siteId, DateRangeSel range});
 typedef _BreakdownArgs = ({String serverId, String siteId, DateRangeSel range, BreakdownDimension dimension});
@@ -57,6 +59,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             .then((SharedPreferences prefs) => prefs.setString(_lastRangeKey, shorthand)),
       );
     }
+  }
+
+  Server? _serverOrNull() {
+    for (final Server server in ref.read(configProvider).servers) {
+      if (server.id == widget.serverId) return server;
+    }
+    return null;
+  }
+
+  /// Looked up again on the tap rather than reusing the record the error view
+  /// was built with, so the edit form starts from what is stored now.
+  void _editServer() {
+    final Server? server = _serverOrNull();
+    if (server == null) return;
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (BuildContext context) => ServerEditScreen(server: server)),
+      ),
+    );
   }
 
   @override
@@ -105,9 +126,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   range: _range,
                 ),
                 loading: () => const _DashboardSkeleton(),
-                error: (Object error, StackTrace stackTrace) => _DashboardError(
+                error: (Object error, StackTrace stackTrace) => ErrorView(
                   error: error,
                   onRetry: () => ref.invalidate(overviewProvider(_args)),
+                  // Deleting a server from under an open dashboard leaves the
+                  // edit shortcut with nothing to open.
+                  onEditServer: _serverOrNull() == null ? null : _editServer,
                 ),
               ),
             ],
@@ -180,14 +204,44 @@ class _DashboardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool nothingAtAll =
+        data.aggregate.visitors == 0 && data.timeseries.every((TimeseriesPoint point) => point.visitors == 0);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _MetricGrid(stats: data.aggregate),
         const SizedBox(height: 16),
         _TimeseriesChart(points: data.timeseries, range: range),
+        if (nothingAtAll) ...<Widget>[const SizedBox(height: 12), const _EmptyRangeHint()],
         const SizedBox(height: 24),
         _BreakdownTabs(serverId: serverId, siteId: siteId, range: range),
+      ],
+    );
+  }
+}
+
+/// A fetch that worked and came back empty. A quiet day and a domain that
+/// doesn't match the one in Plausible look the same from here, so this stays
+/// conditional instead of stating that the site has no traffic.
+class _EmptyRangeHint extends StatelessWidget {
+  const _EmptyRangeHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(Icons.info_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'If you were expecting traffic, the domain saved here has to match the one in Plausible '
+            'exactly. It\'s the part after the host in the dashboard URL, like /example.com.',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ),
       ],
     );
   }
@@ -447,34 +501,6 @@ class _DashboardSkeleton extends StatelessWidget {
   }
 }
 
-class _DashboardError extends StatelessWidget {
-  const _DashboardError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final Object err = error;
-    final String message = err is ApiException ? err.message : 'Something went wrong';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(Icons.error_outline, size: 48, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 16),
-            Text(message, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Current-visitor pill in the AppBar. Stops watching the provider (and so
 /// its 30s polling) while the app isn't in the foreground.
 class _RealtimeBadge extends ConsumerStatefulWidget {
@@ -510,9 +536,13 @@ class _RealtimeBadgeState extends ConsumerState<_RealtimeBadge> with WidgetsBind
 
   @override
   Widget build(BuildContext context) {
-    final int? visitors = _watching
-        ? ref.watch(realtimeProvider((serverId: widget.serverId, siteId: widget.siteId))).valueOrNull
+    final AsyncValue<int>? live = _watching
+        ? ref.watch(realtimeProvider((serverId: widget.serverId, siteId: widget.siteId)))
         : null;
+    // An errored stream keeps its last value. The only failure that reaches
+    // the badge is a rate limit, and polling has stopped by then, so that
+    // value is a count nobody is updating any more.
+    final int? visitors = live == null || live.hasError ? null : live.valueOrNull;
 
     return Tooltip(
       message: 'Visitors right now',
@@ -589,7 +619,7 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
 @visibleForTesting
 const Key breakdownTabContentKey = Key('breakdown-tab-content');
 
-/// TabBar for Pages/Sources/Countries/Devices. No TabBarView — the screen is
+/// TabBar for Pages/Sources/Countries/Devices. There is no TabBarView: the screen is
 /// one SingleChildScrollView, so only the selected tab's list is built below
 /// the bar, which is also what makes the other tabs' providers lazy. Swiping
 /// moves between them anyway, and the content sits on a minimum height so
@@ -629,7 +659,7 @@ class _BreakdownTabs extends StatelessWidget {
               return GestureDetector(
                 // A flick, not a TabBarView: the screen is a single scroll
                 // view, so a TabBarView would need a fixed height and would
-                // give the tabs their own nested scrolling — and it would
+                // give the tabs their own nested scrolling, and it would
                 // build all four, losing the laziness above. The page's
                 // vertical drags are untouched; the two axes don't compete.
                 behavior: HitTestBehavior.opaque,
@@ -785,8 +815,8 @@ class _BreakdownList extends ConsumerWidget {
       data: (List<BreakdownRow> rows) =>
           _BreakdownRows(rows: rows, isCountry: dimension == BreakdownDimension.country),
       loading: () => const _BreakdownSkeleton(),
-      error: (Object error, StackTrace stackTrace) => _BreakdownError(
-        message: error is ApiException ? error.message : 'Something went wrong',
+      error: (Object error, StackTrace stackTrace) => InlineErrorView(
+        error: error,
         onRetry: () => ref.invalidate(breakdownProvider(args)),
       ),
     );
@@ -882,26 +912,6 @@ class _BreakdownSkeleton extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _BreakdownError extends StatelessWidget {
-  const _BreakdownError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: <Widget>[
-          Expanded(child: Text(message, style: Theme.of(context).textTheme.bodySmall)),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
-      ),
     );
   }
 }

@@ -1,4 +1,4 @@
-// Riverpod wiring for app settings. No codegen — plain providers.
+// Riverpod wiring for app settings. No codegen, just plain providers.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

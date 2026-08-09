@@ -22,7 +22,7 @@ void main() {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
     // setMode writes via valueOrNull too (same as the dashboard's range
-    // persistence) — wait for prefs to load first or the write is a no-op.
+    // persistence), so wait for prefs to load first or the write is a no-op.
     await container.read(sharedPreferencesProvider.future);
 
     await container.read(themeModeProvider.notifier).setMode(ThemeMode.dark);
@@ -31,7 +31,7 @@ void main() {
     final ProviderContainer container2 = ProviderContainer();
     addTearDown(container2.dispose);
     // build() reads prefs via valueOrNull, which is only populated once the
-    // future resolves — wait for it before reading the notifier's state.
+    // future resolves, so wait for it before reading the notifier's state.
     await container2.read(sharedPreferencesProvider.future);
 
     expect(container2.read(themeModeProvider), ThemeMode.dark);

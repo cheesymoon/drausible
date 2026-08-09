@@ -49,7 +49,7 @@ Future<ProviderContainer> _pump(WidgetTester tester, {Server? server}) async {
     overrides: <Override>[keyStoreProvider.overrideWithValue(FakeKeyStore())],
   );
   addTearDown(container.dispose);
-  // configProvider reads the repository through valueOrNull — until this
+  // configProvider reads the repository through valueOrNull. Until this
   // resolves the config is still empty.
   await container.read(configRepositoryProvider.future);
 
@@ -99,7 +99,7 @@ void main() {
     // The row watches the config, so it follows the write without a reopen.
     expect(find.text('Not detected yet'), findsOneWidget);
     expect(
-      find.text('Cleared — the next stats load detects it again.'),
+      find.text('Cleared. The next stats load detects it again.'),
       findsOneWidget,
     );
   });

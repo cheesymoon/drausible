@@ -1,5 +1,5 @@
 // Picks the stats client a server needs. A server nobody has probed yet gets
-// one minimal POST to /api/v2/query; a 404 there — and only a 404 — sends the
+// one minimal POST to /api/v2/query; a 404 there, and only a 404, sends the
 // probe on to the v1 route, and the answer is remembered per server.
 
 import 'dart:convert';
@@ -31,7 +31,7 @@ class ApiVersionResolver {
   /// Runs [probe] only while the version is unknown, and only once at a time.
   /// The sharing carries weight: opening the site list asks every visible row
   /// for an aggregate and a timeseries at the same moment, and each of those
-  /// would otherwise probe on its own — a dozen wasted 404s against a budget
+  /// would otherwise probe on its own, a dozen wasted 404s against a budget
   /// of 600 requests an hour.
   Future<ApiVersion> resolve(Future<ApiVersion> Function() probe) {
     if (_version != ApiVersion.unknown) return Future<ApiVersion>.value(_version);
@@ -39,7 +39,7 @@ class ApiVersionResolver {
   }
 
   /// Back to undetected, in-flight probe included. Used by "Re-check", and by
-  /// a v1 route answering 404 — whatever pinned the server to v1 no longer
+  /// a v1 route answering 404: whatever pinned the server to v1 no longer
   /// holds.
   void reset() {
     _version = ApiVersion.unknown;
@@ -56,7 +56,7 @@ class ApiVersionResolver {
     } finally {
       // Cleared either way: an inconclusive probe (both routes 404, a dropped
       // connection) leaves the server unknown and probeable again. Only if the
-      // slot is still this probe's, though — a reset since then may have let a
+      // slot is still this probe's, though. A reset since then may have let a
       // newer one take it, and clearing that would let a third probe start
       // alongside it.
       if (generation == _generation) _inFlight = null;
@@ -120,7 +120,7 @@ class PlausibleApiWithFallback implements PlausibleApi {
   }
 
   /// Asks each route the cheapest question it accepts. This is "is this
-  /// endpoint here", not a request for data — the real call follows.
+  /// endpoint here", not a request for data. The real call follows.
   Future<ApiVersion> _probe(String siteId) async {
     try {
       await _sendProbe(
@@ -140,7 +140,7 @@ class PlausibleApiWithFallback implements PlausibleApi {
       );
       return ApiVersion.v2;
     } on NotFoundEndpointException {
-      // The one answer that means "no v2 route here" — a legacy server returns
+      // The one answer that means "no v2 route here". A legacy server returns
       // 404 with an HTML body, so it's the status that's read. Everything else
       // leaves the question open and propagates untouched: a site_id this
       // server doesn't have answers 401, a captive portal answers 200 with
@@ -157,7 +157,7 @@ class PlausibleApiWithFallback implements PlausibleApi {
     return ApiVersion.v1;
   }
 
-  /// A 404 from a v1 route means the pin no longer fits — the server has been
+  /// A 404 from a v1 route means the pin no longer fits: the server has been
   /// upgraded, or it was never v1 in the first place. Forget it so the next
   /// call probes for v2 again.
   Future<T> _watchForV1Gone<T>(Future<T> Function() call) async {

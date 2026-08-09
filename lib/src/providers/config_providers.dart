@@ -1,4 +1,4 @@
-// Riverpod wiring for the config domain. No codegen — plain providers.
+// Riverpod wiring for the config domain. No codegen, just plain providers.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';

@@ -1,0 +1,23 @@
+Drausible shows your Plausible Analytics stats on your phone. Add a server, whether that is
+plausible.io or a Community Edition instance you run yourself, add the sites you want to watch, and
+you get the dashboard without opening a browser.
+
+It talks to the servers you configure and to nothing else. There is no account to make, and nothing
+about how you use it goes anywhere.
+
+What you get per site:
+
+* Visitors, pageviews, bounce rate and average visit duration
+* Visitors over time as a chart, bucketed by the hour when you look at a single day
+* Ranges from one day out to twelve months, or any pair of dates you pick
+* Top pages, sources and countries, plus devices with a switch between device type, browser and OS
+* How many people are on the site right now, kept up to date while the screen is open
+
+A few things that matter if you self-host:
+
+* Servers too old for the v2 stats API fall back to v1 automatically
+* Plain HTTP works, since instances on a home network often run without TLS
+* Each server can go through its own SOCKS5 proxy, so a .onion address works with Orbot
+
+You need a stats API key from your Plausible account. You add sites by their site ID, since listing
+them needs an API that Community Edition does not have.

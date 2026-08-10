@@ -1,0 +1,4 @@
+First release. Add your Plausible servers and sites, then read visitors, pageviews, bounce rate and
+visit duration over any range from a day to a year. Breakdowns by page, source, country and device,
+a live visitor count, and per-server SOCKS5 for servers behind Tor. Works with older servers that
+only speak the v1 stats API.

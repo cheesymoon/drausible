@@ -25,21 +25,33 @@ class PlausibleApiV2 implements PlausibleApi {
   Future<AggregateStats> aggregate(String siteId, DateRangeSel range) async {
     final _QueryResponse response = await _query(<String, dynamic>{
       'site_id': siteId,
-      'metrics': const <String>['visitors', 'pageviews', 'bounce_rate', 'visit_duration'],
+      'metrics': const <String>['visitors', 'visits', 'pageviews', 'views_per_visit', 'bounce_rate', 'visit_duration'],
       'date_range': range.v2DateRange,
     });
     try {
       final List<dynamic> results = response.json['results'] as List<dynamic>;
       final List<dynamic> metrics = (results.first as Map<String, dynamic>)['metrics'] as List<dynamic>;
+      // Positional, in the order the metrics were requested. A range with no
+      // traffic can report one as null, views/visit especially since it is a
+      // ratio, and that is a zero rather than a broken response.
       return AggregateStats(
-        visitors: (metrics[0] as num).toInt(),
-        pageviews: (metrics[1] as num).toInt(),
-        bounceRate: (metrics[2] as num).toDouble(),
-        visitDurationSeconds: (metrics[3] as num).toInt(),
+        visitors: _at(metrics, 0)?.toInt() ?? 0,
+        visits: _at(metrics, 1)?.toInt() ?? 0,
+        pageviews: _at(metrics, 2)?.toInt() ?? 0,
+        viewsPerVisit: _at(metrics, 3)?.toDouble() ?? 0,
+        bounceRate: _at(metrics, 4)?.toDouble() ?? 0,
+        visitDurationSeconds: _at(metrics, 5)?.toInt() ?? 0,
       );
     } catch (_) {
       throw ServerException(response.statusCode);
     }
+  }
+
+  // Null for a short row or a null entry; the caller decides what that means.
+  num? _at(List<dynamic> metrics, int index) {
+    if (index >= metrics.length) return null;
+    final dynamic value = metrics[index];
+    return value is num ? value : null;
   }
 
   @override
@@ -122,7 +134,9 @@ class PlausibleApiV2 implements PlausibleApi {
     throwForStatusCode(response.statusCode);
     try {
       final dynamic decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) throw const FormatException('response body is not an object');
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('response body is not an object');
+      }
       return decoded;
     } on FormatException {
       throw ServerException(response.statusCode);

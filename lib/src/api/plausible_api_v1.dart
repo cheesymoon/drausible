@@ -11,19 +11,37 @@ import 'api_exception.dart';
 import 'api_http.dart';
 import 'plausible_api.dart';
 
+const String _aggregatePath = '/api/v1/stats/aggregate';
+
+/// The four metrics every v1 server has ever had.
+const String _classicMetrics = 'visitors,pageviews,bounce_rate,visit_duration';
+
 class PlausibleApiV1 implements PlausibleApi {
-  PlausibleApiV1(this._client, this._baseUrl, this._apiKey, {bool isProxied = false}) : _isProxied = isProxied;
+  PlausibleApiV1(
+    this._client,
+    this._baseUrl,
+    this._apiKey, {
+    bool isProxied = false,
+    bool Function()? extendedAggregateMetricsEnabled,
+    void Function()? onExtendedAggregateMetricsRejected,
+  }) : _isProxied = isProxied,
+       _extendedAggregateMetricsEnabled = extendedAggregateMetricsEnabled,
+       _onExtendedAggregateMetricsRejected = onExtendedAggregateMetricsRejected;
 
   final http.Client _client;
   final Uri _baseUrl;
   final String _apiKey;
   final bool _isProxied;
+  final bool Function()? _extendedAggregateMetricsEnabled;
+  final void Function()? _onExtendedAggregateMetricsRejected;
+
+  // Direct v1 clients keep their own fallback state. PlausibleApiWithFallback
+  // injects resolver-backed state so the decision survives fresh API objects.
+  bool _localExtendedMetrics = true;
 
   @override
   Future<AggregateStats> aggregate(String siteId, DateRangeSel range) async {
-    final _V1Response response = await _get('/api/v1/stats/aggregate', siteId, range, const <String, String>{
-      'metrics': 'visitors,pageviews,bounce_rate,visit_duration',
-    });
+    final _V1Response response = await _aggregateResponse(siteId, range);
     try {
       final Map<String, dynamic> results = response.json['results'] as Map<String, dynamic>;
       return AggregateStats(
@@ -31,10 +49,41 @@ class PlausibleApiV1 implements PlausibleApi {
         pageviews: _metric(results, 'pageviews').toInt(),
         bounceRate: _metric(results, 'bounce_rate').toDouble(),
         visitDurationSeconds: _metric(results, 'visit_duration').toInt(),
+        visits: _optionalMetric(results, 'visits')?.toInt(),
+        viewsPerVisit: _optionalMetric(results, 'views_per_visit')?.toDouble(),
       );
     } catch (_) {
       throw ServerException(response.statusCode);
     }
+  }
+
+  /// v1 answers 400 for a metric name it doesn't know, so a server older than
+  /// `visits`/`views_per_visit` would lose the whole overview over two extras.
+  /// The first 400 drops this server to the four metrics v1 has always had.
+  Future<_V1Response> _aggregateResponse(String siteId, DateRangeSel range) async {
+    if (!_extendedMetricsEnabled()) {
+      return _get(_aggregatePath, siteId, range, const <String, String>{'metrics': _classicMetrics});
+    }
+    try {
+      return await _get(_aggregatePath, siteId, range, const <String, String>{
+        'metrics': '$_classicMetrics,visits,views_per_visit',
+      });
+    } on ServerException catch (e) {
+      if (e.statusCode != 400) rethrow;
+      _disableExtendedMetrics();
+      return _get(_aggregatePath, siteId, range, const <String, String>{'metrics': _classicMetrics});
+    }
+  }
+
+  bool _extendedMetricsEnabled() => _extendedAggregateMetricsEnabled?.call() ?? _localExtendedMetrics;
+
+  void _disableExtendedMetrics() {
+    final void Function()? onRejected = _onExtendedAggregateMetricsRejected;
+    if (onRejected != null) {
+      onRejected();
+      return;
+    }
+    _localExtendedMetrics = false;
   }
 
   @override
@@ -100,9 +149,13 @@ class PlausibleApiV1 implements PlausibleApi {
   // Aggregate results are keyed by metric name rather than positional as in
   // v2, so they are read by key. The order is not guaranteed. A range with no
   // traffic can report a metric as null or leave it out; both mean 0.
-  num _metric(Map<String, dynamic> results, String name) {
+  num _metric(Map<String, dynamic> results, String name) => _optionalMetric(results, name) ?? 0;
+
+  // Null only where the metric is absent altogether, which means this server
+  // was never asked for it. Present but null is a real zero.
+  num? _optionalMetric(Map<String, dynamic> results, String name) {
     final dynamic metric = results[name];
-    if (metric is! Map<String, dynamic>) return 0;
+    if (metric is! Map<String, dynamic>) return null;
     final dynamic value = metric['value'];
     return value is num ? value : 0;
   }
@@ -148,7 +201,9 @@ class PlausibleApiV1 implements PlausibleApi {
     throwForStatusCode(response.statusCode);
     try {
       final dynamic decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) throw const FormatException('response body is not an object');
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('response body is not an object');
+      }
       return decoded;
     } on FormatException {
       throw ServerException(response.statusCode);

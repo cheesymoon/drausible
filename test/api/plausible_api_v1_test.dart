@@ -31,15 +31,54 @@ void main() {
         equals(<String, String>{
           'site_id': 'example.com',
           'period': '30d',
-          'metrics': 'visitors,pageviews,bounce_rate,visit_duration',
+          'metrics': 'visitors,pageviews,bounce_rate,visit_duration,visits,views_per_visit',
         }),
       );
       // A preset carries its own window, so no date parameter goes out.
       expect(captured!.url.queryParameters.containsKey('date'), isFalse);
       expect(stats.visitors, 1423);
+      expect(stats.visits, 1398);
       expect(stats.pageviews, 3211);
+      expect(stats.viewsPerVisit, 2.3);
       expect(stats.bounceRate, 47.0);
       expect(stats.visitDurationSeconds, 161);
+    });
+
+    test('a server that rejects the newer metrics is retried with the classic four', () async {
+      final List<http.Request> requests = <http.Request>[];
+      final MockClient client = MockClient((http.Request request) async {
+        requests.add(request);
+        final String metrics = request.url.queryParameters['metrics'] ?? '';
+        // What a server older than these two metrics answers.
+        if (metrics.contains('views_per_visit')) {
+          return http.Response('{"error":"The metric `views_per_visit` is not recognized."}', 400);
+        }
+        return http.Response(
+          '{"results":{"visitors":{"value":12},"pageviews":{"value":30},'
+          '"bounce_rate":{"value":40},"visit_duration":{"value":90}}}',
+          200,
+        );
+      });
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final AggregateStats stats = await api.aggregate('example.com', const DateRangeSel.d30());
+
+      expect(requests, hasLength(2));
+      expect(requests[0].url.queryParameters['metrics'], contains('views_per_visit'));
+      expect(requests[1].url.queryParameters['metrics'], 'visitors,pageviews,bounce_rate,visit_duration');
+      // The four it does report survive; the two it cannot are left unset so
+      // the dashboard drops those cards rather than inventing a zero.
+      expect(stats.visitors, 12);
+      expect(stats.pageviews, 30);
+      expect(stats.bounceRate, 40.0);
+      expect(stats.visitDurationSeconds, 90);
+      expect(stats.visits, isNull);
+      expect(stats.viewsPerVisit, isNull);
+
+      // Having learned it once, it stops asking.
+      await api.aggregate('example.com', const DateRangeSel.d30());
+      expect(requests, hasLength(3));
+      expect(requests[2].url.queryParameters['metrics'], 'visitors,pageviews,bounce_rate,visit_duration');
     });
 
     test('a trailing slash on the base url does not duplicate', () async {
@@ -60,14 +99,17 @@ void main() {
       // Keys deliberately out of order, as a server is free to emit them.
       const String body =
           '{"results": {"visit_duration": {"value": 90}, "bounce_rate": {"value": null}, '
-          '"pageviews": {"value": 7}, "visitors": {"value": 4}}}';
+          '"views_per_visit": {"value": 1.8}, "pageviews": {"value": 7}, "visits": {"value": 5}, '
+          '"visitors": {"value": 4}}}';
       final MockClient client = MockClient((http.Request request) async => http.Response(body, 200));
       final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final AggregateStats stats = await api.aggregate('example.com', const DateRangeSel.d30());
 
       expect(stats.visitors, 4);
+      expect(stats.visits, 5);
       expect(stats.pageviews, 7);
+      expect(stats.viewsPerVisit, 1.8);
       expect(stats.bounceRate, 0);
       expect(stats.visitDurationSeconds, 90);
     });

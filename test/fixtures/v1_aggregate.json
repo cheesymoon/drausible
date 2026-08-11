@@ -6,8 +6,14 @@
         "pageviews": {
             "value": 3211
         },
+        "views_per_visit": {
+            "value": 2.3
+        },
         "visit_duration": {
             "value": 161
+        },
+        "visits": {
+            "value": 1398
         },
         "visitors": {
             "value": 1423

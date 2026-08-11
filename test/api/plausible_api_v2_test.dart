@@ -32,12 +32,14 @@ void main() {
         jsonDecode(captured!.body),
         equals(<String, dynamic>{
           'site_id': 'example.com',
-          'metrics': <String>['visitors', 'pageviews', 'bounce_rate', 'visit_duration'],
+          'metrics': <String>['visitors', 'visits', 'pageviews', 'views_per_visit', 'bounce_rate', 'visit_duration'],
           'date_range': '30d',
         }),
       );
       expect(stats.visitors, 1423);
+      expect(stats.visits, 1398);
       expect(stats.pageviews, 3211);
+      expect(stats.viewsPerVisit, 2.3);
       expect(stats.bounceRate, 47.3);
       expect(stats.visitDurationSeconds, 161);
     });
@@ -166,6 +168,17 @@ void main() {
         () => api.aggregate('example.com', const DateRangeSel.d30()),
         throwsA(isA<ServerException>().having((ServerException e) => e.statusCode, 'statusCode', 500)),
       );
+    });
+
+    test('a null metric in a zero-traffic range reads as 0, not an error', () async {
+      // views/visit is a ratio, so an empty range is exactly where a server has
+      // nothing to divide and answers null.
+      final PlausibleApiV2 api = apiReturning(200, '{"results":[{"metrics":[0,0,0,null,0,0]}]}');
+
+      final AggregateStats stats = await api.aggregate('example.com', const DateRangeSel.d30());
+
+      expect(stats.visitors, 0);
+      expect(stats.viewsPerVisit, 0);
     });
 
     test('a 200 with a garbage body throws ServerException', () {

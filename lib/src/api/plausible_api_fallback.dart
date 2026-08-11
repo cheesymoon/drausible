@@ -22,11 +22,18 @@ class ApiVersionResolver {
 
   ApiVersion _version;
   Future<ApiVersion>? _inFlight;
+  bool _v1ExtendedAggregateMetrics = true;
   // Bumped on every reset, so a probe that finishes after one can tell its
   // slot was taken away from it.
   int _generation = 0;
 
   ApiVersion get version => _version;
+
+  bool get v1ExtendedAggregateMetrics => _v1ExtendedAggregateMetrics;
+
+  void disableV1ExtendedAggregateMetrics() {
+    _v1ExtendedAggregateMetrics = false;
+  }
 
   /// Runs [probe] only while the version is unknown, and only once at a time.
   /// The sharing carries weight: opening the site list asks every visible row
@@ -44,6 +51,7 @@ class ApiVersionResolver {
   void reset() {
     _version = ApiVersion.unknown;
     _inFlight = null;
+    _v1ExtendedAggregateMetrics = true;
     _generation++;
   }
 
@@ -80,7 +88,14 @@ class PlausibleApiWithFallback implements PlausibleApi {
        _v2ProbeUrl = joinApiPath(baseUrl, '/api/v2/query'),
        _v1ProbeUrl = joinApiPath(baseUrl, '/api/v1/stats/aggregate'),
        _v2 = PlausibleApiV2(client, baseUrl, apiKey, isProxied: isProxied),
-       _v1 = PlausibleApiV1(client, baseUrl, apiKey, isProxied: isProxied);
+       _v1 = PlausibleApiV1(
+         client,
+         baseUrl,
+         apiKey,
+         isProxied: isProxied,
+         extendedAggregateMetricsEnabled: () => resolver.v1ExtendedAggregateMetrics,
+         onExtendedAggregateMetricsRejected: resolver.disableV1ExtendedAggregateMetrics,
+       );
 
   final http.Client _client;
   final String _apiKey;

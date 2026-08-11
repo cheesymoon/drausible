@@ -28,8 +28,12 @@ bool _isV2Probe(http.Request request) {
 Future<http.Response> _v2Reply(http.Request request) async {
   if (_isV2Probe(request)) return http.Response('{}', 200);
   final Map<String, dynamic> body = jsonDecode(request.body) as Map<String, dynamic>;
-  if (body.containsKey('pagination')) return http.Response(await _fixture('v2_breakdown.json'), 200);
-  if (body.containsKey('dimensions')) return http.Response(await _fixture('v2_timeseries.json'), 200);
+  if (body.containsKey('pagination')) {
+    return http.Response(await _fixture('v2_breakdown.json'), 200);
+  }
+  if (body.containsKey('dimensions')) {
+    return http.Response(await _fixture('v2_timeseries.json'), 200);
+  }
   return http.Response(await _fixture('v2_aggregate.json'), 200);
 }
 
@@ -87,9 +91,10 @@ void main() {
         requests[1].url.queryParameters,
         equals(<String, String>{'site_id': 'example.com', 'period': 'day', 'metrics': 'visitors'}),
       );
-      // The real call asks for all four metrics over the range that was asked for.
+      // The real call goes out over the range that was asked for. Which metrics
+      // it names is plausible_api_v1_test's business, not this test's.
       expect(requests[2].url.queryParameters['period'], '30d');
-      expect(requests[2].url.queryParameters['metrics'], 'visitors,pageviews,bounce_rate,visit_duration');
+      expect(requests[2].url.queryParameters['metrics'], contains('visitors'));
     });
 
     test('both routes answering 404 leaves the server unknown', () async {
@@ -165,7 +170,9 @@ void main() {
       final MockClient client = MockClient((http.Request request) async {
         requests.add(request);
         // Hold the probe open so the other two calls have to queue behind it.
-        if (_isV2Probe(request)) await Future<void>.delayed(const Duration(milliseconds: 10));
+        if (_isV2Probe(request)) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
         return _v2Reply(request);
       });
       final ApiVersionResolver resolver = ApiVersionResolver();
@@ -211,6 +218,32 @@ void main() {
       expect(points, hasLength(3));
       expect(requests, hasLength(1));
       expect(requests.single.url.path, '/api/v1/stats/timeseries');
+    });
+
+    test('v1 aggregate metric downgrade survives a fresh fallback api object', () async {
+      final List<http.Request> requests = <http.Request>[];
+      final MockClient client = MockClient((http.Request request) async {
+        requests.add(request);
+        final String metrics = request.url.queryParameters['metrics'] ?? '';
+        if (metrics.contains('views_per_visit')) {
+          return http.Response('{"error":"The metric `views_per_visit` is not recognized."}', 400);
+        }
+        return http.Response(
+          '{"results":{"visitors":{"value":12},"pageviews":{"value":30},'
+          '"bounce_rate":{"value":40},"visit_duration":{"value":90}}}',
+          200,
+        );
+      });
+      final ApiVersionResolver resolver = ApiVersionResolver(ApiVersion.v1);
+
+      await _api(client, resolver).aggregate('example.com', const DateRangeSel.d30());
+      await _api(client, resolver).aggregate('example.com', const DateRangeSel.d30());
+
+      expect(requests, hasLength(3));
+      expect(requests[0].url.queryParameters['metrics'], contains('views_per_visit'));
+      expect(requests[1].url.queryParameters['metrics'], 'visitors,pageviews,bounce_rate,visit_duration');
+      expect(requests[2].url.queryParameters['metrics'], 'visitors,pageviews,bounce_rate,visit_duration');
+      expect(resolver.v1ExtendedAggregateMetrics, isFalse);
     });
 
     test('a 404 from a v1 route drops the pin so the next call probes again', () async {

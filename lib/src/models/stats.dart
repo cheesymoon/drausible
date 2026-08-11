@@ -6,12 +6,20 @@ class AggregateStats {
     required this.pageviews,
     required this.bounceRate,
     required this.visitDurationSeconds,
+    this.visits,
+    this.viewsPerVisit,
   });
 
   final int visitors;
   final int pageviews;
   final double bounceRate;
   final int visitDurationSeconds;
+
+  /// Null when the server never reported them. Servers too old for these two
+  /// metrics reject a request that asks for them, so the dashboard leaves those
+  /// cards out rather than showing a zero it made up.
+  final int? visits;
+  final double? viewsPerVisit;
 }
 
 class TimeseriesPoint {

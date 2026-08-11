@@ -18,7 +18,14 @@ class FakePlausibleApi implements PlausibleApi {
   @override
   Future<AggregateStats> aggregate(String siteId, DateRangeSel range) async {
     aggregateCalls++;
-    return AggregateStats(visitors: 0, pageviews: 0, bounceRate: 0, visitDurationSeconds: 0);
+    return AggregateStats(
+      visitors: 0,
+      visits: 0,
+      pageviews: 0,
+      viewsPerVisit: 0,
+      bounceRate: 0,
+      visitDurationSeconds: 0,
+    );
   }
 
   @override
@@ -50,7 +57,14 @@ class GatedPlausibleApi implements PlausibleApi {
   @override
   Future<AggregateStats> aggregate(String siteId, DateRangeSel range) async {
     await aggregateGate;
-    return AggregateStats(visitors: 0, pageviews: 0, bounceRate: 0, visitDurationSeconds: 0);
+    return AggregateStats(
+      visitors: 0,
+      visits: 0,
+      pageviews: 0,
+      viewsPerVisit: 0,
+      bounceRate: 0,
+      visitDurationSeconds: 0,
+    );
   }
 
   @override

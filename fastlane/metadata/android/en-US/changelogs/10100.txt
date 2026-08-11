@@ -1,0 +1,4 @@
+### Features
+
+* report visits and views per visit ([57eec50](https://github.com/cheesymoon/drausible/commit/57eec50a6e414b07acd8ca5d686283676fb0a5bd))
+* show visits and views per visit on the dashboard ([7f7ea08](https://github.com/cheesymoon/drausible/commit/7f7ea08b4bdc028823c4d7e0aabdee314cf86f62))

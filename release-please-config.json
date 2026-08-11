@@ -2,7 +2,8 @@
   "release-type": "dart",
   "packages": {
     ".": {
-      "package-name": "drausible"
+      "package-name": "drausible",
+      "include-component-in-tag": false
     }
   }
 }

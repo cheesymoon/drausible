@@ -35,11 +35,24 @@ jobs:
           fi
 
       - name: Run release-please
-        uses: googleapis/release-please-action@v4
+        id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Stamp release assets on Gridcoin
+        if: ${{ steps.release.outputs.release_created }}
+        continue-on-error: true
+        uses: gridcat/gridcoin-stamp-action@653bdaa29abf87050b137a546be12a085c8657df
+        # No token passed: the input defaults to github.token, which this
+        # workflow already grants contents: write. Stamping needs nothing the
+        # release PAT would add, and a third-party action should see the
+        # narrower of the two.
+        with:
+          tag: ${{ steps.release.outputs.tag_name }}
+          wait-for-confirmation: false
 
   release-metadata:
     name: release metadata
@@ -58,7 +71,7 @@ jobs:
           fi
 
       - name: Check out release PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}

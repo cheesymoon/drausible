@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Require release token
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_PLEASE_TOKEN" ]; then
+            echo "Set RELEASE_PLEASE_TOKEN to a PAT or GitHub App token so release-created events trigger workflows." >&2
+            exit 1
+          fi
+
+      - name: Run release-please
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  release-metadata:
+    name: release metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'release-please--branches--master')
+
+    steps:
+      - name: Require release token
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_PLEASE_TOKEN" ]; then
+            echo "Set RELEASE_PLEASE_TOKEN to a PAT or GitHub App token so this job can update the release PR branch." >&2
+            exit 1
+          fi
+
+      - name: Check out release PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - name: Update versionCode and F-Droid changelog
+        run: .github/scripts/update-release-metadata.sh
+
+      - name: Commit release metadata
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if git diff --quiet -- pubspec.yaml fastlane/metadata/android/en-US/changelogs; then
+            echo "Release metadata is already up to date."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml fastlane/metadata/android/en-US/changelogs
+          git commit -m "chore: update release metadata"
+          git push origin "HEAD:${HEAD_REF}"

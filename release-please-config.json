@@ -1,0 +1,8 @@
+{
+  "release-type": "dart",
+  "packages": {
+    ".": {
+      "package-name": "drausible"
+    }
+  }
+}

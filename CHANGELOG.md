@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0](https://github.com/cheesymoon/drausible/compare/v1.0.0...v1.1.0) (2026-08-11)
+
+
+- Visits and views per visit on the dashboard, next to the metrics that were
+  already there.
+- Servers too old to report those two keep working. The request falls back to
+  the four metrics v1 has always had, and the dashboard leaves the two cards out
+  rather than showing a zero it made up.
+
 ## 1.0.0 - 2026-08-10
 
 First release.

@@ -1,4 +1,5 @@
-### Features
-
-* report visits and views per visit ([57eec50](https://github.com/cheesymoon/drausible/commit/57eec50a6e414b07acd8ca5d686283676fb0a5bd))
-* show visits and views per visit on the dashboard ([7f7ea08](https://github.com/cheesymoon/drausible/commit/7f7ea08b4bdc028823c4d7e0aabdee314cf86f62))
+- Visits and views per visit on the dashboard, next to the metrics that were
+  already there.
+- Servers too old to report those two keep working. The request falls back to
+  the four metrics v1 has always had, and the dashboard leaves the two cards out
+  rather than showing a zero it made up.

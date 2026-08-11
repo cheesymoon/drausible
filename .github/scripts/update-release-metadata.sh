@@ -95,6 +95,16 @@ if [[ ! -s "$tmp_notes" ]]; then
   exit 1
 fi
 
+# F-Droid caps changelogs at 500 characters and silently cuts the rest, so stop
+# here and let the release PR be edited rather than ship a note for users that
+# ends mid-sentence.
+note_length="$(wc -m < "$tmp_notes" | tr -d '[:space:]')"
+if (( note_length > 500 )); then
+  echo "Changelog section for $version_name is $note_length characters; F-Droid allows 500." >&2
+  echo "Shorten the $version_name section in $changelog on the release PR." >&2
+  exit 1
+fi
+
 mv "$tmp_notes" "$fastlane_changelog"
 
 echo "Set pubspec version to ${version_name}+${version_code}"

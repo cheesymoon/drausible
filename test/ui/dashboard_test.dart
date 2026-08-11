@@ -28,9 +28,16 @@ class _StoredConfig extends ConfigNotifier {
   );
 }
 
-OverviewData _fakeOverview({int visitors = 1423, int pageviews = 3200}) {
+OverviewData _fakeOverview({int visitors = 1423, int visits = 987, int pageviews = 3200}) {
   return OverviewData(
-    aggregate: AggregateStats(visitors: visitors, pageviews: pageviews, bounceRate: 47, visitDurationSeconds: 161),
+    aggregate: AggregateStats(
+      visitors: visitors,
+      visits: visits,
+      pageviews: pageviews,
+      viewsPerVisit: 2.3,
+      bounceRate: 47,
+      visitDurationSeconds: 161,
+    ),
     timeseries: <TimeseriesPoint>[
       TimeseriesPoint(time: DateTime(2026, 7, 1), visitors: 10),
       TimeseriesPoint(time: DateTime(2026, 7, 2), visitors: 20),
@@ -41,7 +48,14 @@ OverviewData _fakeOverview({int visitors = 1423, int pageviews = 3200}) {
 /// A range the site was live through with nothing to show for it.
 OverviewData _zeroOverview() {
   return OverviewData(
-    aggregate: AggregateStats(visitors: 0, pageviews: 0, bounceRate: 0, visitDurationSeconds: 0),
+    aggregate: AggregateStats(
+      visitors: 0,
+      visits: 0,
+      pageviews: 0,
+      viewsPerVisit: 0,
+      bounceRate: 0,
+      visitDurationSeconds: 0,
+    ),
     timeseries: <TimeseriesPoint>[
       TimeseriesPoint(time: DateTime(2026, 7, 1), visitors: 0),
       TimeseriesPoint(time: DateTime(2026, 7, 2), visitors: 0),
@@ -77,26 +91,32 @@ void main() {
     range: const DateRangeSel.d7(),
   );
 
-  testWidgets('shows the four metric values for the default 30-day range', (WidgetTester tester) async {
+  testWidgets('shows the six metric values for the default 30-day range', (WidgetTester tester) async {
     await _pump(tester, <Override>[overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview())]);
     await tester.pumpAndSettle();
 
     expect(find.text(NumberFormat.compact().format(1423)), findsOneWidget);
+    expect(find.text(NumberFormat.compact().format(987)), findsOneWidget);
     expect(find.text(NumberFormat.compact().format(3200)), findsOneWidget);
+    expect(find.text('2.3'), findsOneWidget);
     expect(find.text('47%'), findsOneWidget);
     expect(find.text('2m 41s'), findsOneWidget);
   });
 
-  testWidgets('metric cards sit in one row on a wide (landscape) viewport', (WidgetTester tester) async {
+  testWidgets('metric cards use three columns on a wide (landscape) viewport', (WidgetTester tester) async {
     await _pump(tester, <Override>[overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview())]);
     tester.view.physicalSize = const Size(890, 420);
     await tester.pumpAndSettle();
 
     final double visitorsY = tester.getTopLeft(find.text('Visitors')).dy;
+    final double pageviewsY = tester.getTopLeft(find.text('Pageviews')).dy;
+    final double viewsPerVisitY = tester.getTopLeft(find.text('Views / visit')).dy;
     final double durationY = tester.getTopLeft(find.text('Visit duration')).dy;
-    // Same row (small offset from text centering) - a 2x2 stack would put
-    // this card a full row (~100px) lower.
-    expect((durationY - visitorsY).abs(), lessThan(40));
+    // Three columns: Pageviews finishes the first row, then the remaining
+    // aggregate metrics start the second row.
+    expect((pageviewsY - visitorsY).abs(), lessThan(40));
+    expect(viewsPerVisitY, greaterThan(visitorsY + 60));
+    expect((durationY - viewsPerVisitY).abs(), lessThan(40));
   });
 
   testWidgets('switching the range chip queries the provider with the new range', (WidgetTester tester) async {

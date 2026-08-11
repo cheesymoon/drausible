@@ -7,7 +7,7 @@ about how you use it goes anywhere.
 
 What you get per site:
 
-* Visitors, pageviews, bounce rate and average visit duration
+* Visitors, visits, pageviews, views per visit, bounce rate and average visit duration
 * Visitors over time as a chart, bucketed by the hour when you look at a single day
 * Ranges from one day out to twelve months, or any pair of dates you pick
 * Top pages, sources and countries, plus devices with a switch between device type, browser and OS

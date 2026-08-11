@@ -182,7 +182,9 @@ class _RangeSelector extends StatelessWidget {
       lastDate: now,
       initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now),
     );
-    if (picked != null) onSelected(DateRangeSel.custom(picked.start, picked.end));
+    if (picked != null) {
+      onSelected(DateRangeSel.custom(picked.start, picked.end));
+    }
   }
 }
 
@@ -247,26 +249,32 @@ class _MetricGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final NumberFormat compact = NumberFormat.compact();
-    // 2x2 on portrait phones, one row of four when there's width for it
+    // Absent on servers too old to report them, and then the card is left out.
+    final int? visits = stats.visits;
+    final double? viewsPerVisit = stats.viewsPerVisit;
+    // 2 columns on portrait phones, 3 columns when there's width for it
     // (landscape, tablets, split screen).
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final bool wide = constraints.maxWidth >= 640;
         return GridView.count(
-          crossAxisCount: wide ? 4 : 2,
+          crossAxisCount: wide ? 3 : 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: wide ? 1.9 : 1.6,
+          childAspectRatio: wide ? 2.2 : 1.6,
           children: <Widget>[
             _MetricCard(label: 'Visitors', value: compact.format(stats.visitors), tone: _CardTone.primary),
-            _MetricCard(label: 'Pageviews', value: compact.format(stats.pageviews), tone: _CardTone.secondary),
-            _MetricCard(label: 'Bounce rate', value: '${stats.bounceRate.round()}%', tone: _CardTone.tertiary),
+            if (visits != null) _MetricCard(label: 'Visits', value: compact.format(visits), tone: _CardTone.secondary),
+            _MetricCard(label: 'Pageviews', value: compact.format(stats.pageviews), tone: _CardTone.tertiary),
+            if (viewsPerVisit != null)
+              _MetricCard(label: 'Views / visit', value: _formatDecimal(viewsPerVisit), tone: _CardTone.neutral),
+            _MetricCard(label: 'Bounce rate', value: '${stats.bounceRate.round()}%', tone: _CardTone.primary),
             _MetricCard(
               label: 'Visit duration',
               value: _formatDuration(stats.visitDurationSeconds),
-              tone: _CardTone.neutral,
+              tone: _CardTone.secondary,
             ),
           ],
         );
@@ -274,6 +282,8 @@ class _MetricGrid extends StatelessWidget {
     );
   }
 }
+
+String _formatDecimal(double value) => NumberFormat('0.#').format(value);
 
 /// "2m 41s", or just "41s" under a minute.
 String _formatDuration(int seconds) {
@@ -388,7 +398,9 @@ class _TimeseriesChart extends StatelessWidget {
                 interval: bottomAxis.interval,
                 getTitlesWidget: (double value, TitleMeta meta) {
                   final int index = value.round();
-                  if (index < 0 || index >= points.length) return const SizedBox.shrink();
+                  if (index < 0 || index >= points.length) {
+                    return const SizedBox.shrink();
+                  }
                   return SideTitleWidget(
                     axisSide: meta.axisSide,
                     child: Text(bottomAxis.label(points[index].time), style: axisStyle),
@@ -716,7 +728,9 @@ class _SelectedBreakdownTabState extends State<_SelectedBreakdownTab> {
   }
 
   void _onTabControllerChanged() {
-    if (_controller!.index != _index) setState(() => _index = _controller!.index);
+    if (_controller!.index != _index) {
+      setState(() => _index = _controller!.index);
+    }
   }
 
   @override

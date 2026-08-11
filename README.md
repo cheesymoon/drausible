@@ -16,7 +16,7 @@ dashboard is on your phone instead of in a browser tab.
 
 Per site, over any date range you pick:
 
-- visitors, pageviews, bounce rate and average visit duration
+- visitors, visits, pageviews, views per visit, bounce rate and average visit duration
 - visitors over time as a chart, bucketed hourly when the range is a single day
 - top pages, sources and countries, plus devices with a switch between device type, browser and OS
 - how many people are on the site right now, refreshed every 30 seconds while the screen is open

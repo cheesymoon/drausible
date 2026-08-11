@@ -14,14 +14,9 @@ class DrausibleApp extends ConsumerWidget {
     final ThemeMode themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: 'Drausible',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: _seedColor),
-      ),
+      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: _seedColor)),
       darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: _seedColor,
-          brightness: Brightness.dark,
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: _seedColor, brightness: Brightness.dark),
       ),
       themeMode: themeMode,
       home: const ServerListScreen(),

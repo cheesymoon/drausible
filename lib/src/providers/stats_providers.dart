@@ -30,17 +30,12 @@ Server? _serverOrNull(ConfigState config, String serverId) {
 Server _serverById(ConfigState config, String serverId) =>
     _serverOrNull(config, serverId) ?? (throw StateError('No server with id $serverId'));
 
-Site _siteById(ConfigState config, String siteId) => config.sites.firstWhere(
-  (Site s) => s.id == siteId,
-  orElse: () => throw StateError('No site with id $siteId'),
-);
+Site _siteById(ConfigState config, String siteId) =>
+    config.sites.firstWhere((Site s) => s.id == siteId, orElse: () => throw StateError('No site with id $siteId'));
 
 /// One http.Client per server, rebuilt (and the old one closed) whenever that
 /// server's transport changes.
-final ProviderFamily<http.Client, String> httpClientProvider = Provider.family<http.Client, String>((
-  ref,
-  serverId,
-) {
+final ProviderFamily<http.Client, String> httpClientProvider = Provider.family<http.Client, String>((ref, serverId) {
   // Narrowed to the proxy on purpose, since it is all buildClientFor reads.
   // Watching the whole Server would close this client when a rename, or a
   // freshly probed api version, is written, and IOClient.close() aborts the
@@ -141,24 +136,20 @@ class OverviewData {
 }
 
 final AutoDisposeFutureProviderFamily<OverviewData, ({String serverId, String siteId, DateRangeSel range})>
-overviewProvider =
-    FutureProvider.autoDispose
-        .family<OverviewData, ({String serverId, String siteId, DateRangeSel range})>((ref, args) async {
-          final ConfigState config = ref.watch(configProvider);
-          final Server server = _serverById(config, args.serverId);
-          final Site site = _siteById(config, args.siteId);
-          final StatsRepository repository = ref.watch(statsRepositoryProvider);
+overviewProvider = FutureProvider.autoDispose
+    .family<OverviewData, ({String serverId, String siteId, DateRangeSel range})>((ref, args) async {
+      final ConfigState config = ref.watch(configProvider);
+      final Server server = _serverById(config, args.serverId);
+      final Site site = _siteById(config, args.siteId);
+      final StatsRepository repository = ref.watch(statsRepositoryProvider);
 
-          final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
-            repository.aggregate(server, site, args.range),
-            repository.timeseries(server, site, args.range),
-          ]);
+      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
+        repository.aggregate(server, site, args.range),
+        repository.timeseries(server, site, args.range),
+      ]);
 
-          return OverviewData(
-            aggregate: results[0] as AggregateStats,
-            timeseries: results[1] as List<TimeseriesPoint>,
-          );
-        });
+      return OverviewData(aggregate: results[0] as AggregateStats, timeseries: results[1] as List<TimeseriesPoint>);
+    });
 
 final AutoDisposeFutureProviderFamily<
   List<BreakdownRow>,
@@ -179,7 +170,10 @@ breakdownProvider = FutureProvider.autoDispose
 /// Today's visitor count and hourly points for a site row's sparkline
 /// preview. Same "day" range as the dashboard's Today chip, so it rides the
 /// same 60s repo cache when a user opens that site next.
-final AutoDisposeFutureProviderFamily<({int visitors, List<TimeseriesPoint> points}), ({String serverId, String siteId})>
+final AutoDisposeFutureProviderFamily<
+  ({int visitors, List<TimeseriesPoint> points}),
+  ({String serverId, String siteId})
+>
 sitePreviewProvider = FutureProvider.autoDispose
     .family<({int visitors, List<TimeseriesPoint> points}), ({String serverId, String siteId})>((ref, args) async {
       final ConfigState config = ref.watch(configProvider);
@@ -200,8 +194,9 @@ sitePreviewProvider = FutureProvider.autoDispose
 /// keeps showing the last known value instead of blanking out. Being rate
 /// limited is the exception: polling stops for the cooldown, and a count nobody
 /// is refreshing would sit there looking live for ten minutes.
-final AutoDisposeStreamProviderFamily<int, ({String serverId, String siteId})> realtimeProvider =
-    StreamProvider.autoDispose.family<int, ({String serverId, String siteId})>((ref, args) {
+final AutoDisposeStreamProviderFamily<int, ({String serverId, String siteId})> realtimeProvider = StreamProvider
+    .autoDispose
+    .family<int, ({String serverId, String siteId})>((ref, args) {
       final ConfigState config = ref.watch(configProvider);
       final Server server = _serverById(config, args.serverId);
       final Site site = _siteById(config, args.siteId);

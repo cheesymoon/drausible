@@ -80,9 +80,7 @@ void main() {
     final ConfigRepository repo = ConfigRepository(prefs: prefs, keyStore: keyStore);
     await repo.addServer(buildServer(), 'key');
 
-    final ConfigState added = await repo.addSite(
-      Site(id: 'site1', serverId: 'srv1', domain: 'example.com'),
-    );
+    final ConfigState added = await repo.addSite(Site(id: 'site1', serverId: 'srv1', domain: 'example.com'));
     expect(added.sites, hasLength(1));
 
     final ConfigState deleted = await repo.deleteSite('site1');

@@ -28,11 +28,7 @@ class FakeKeyStore implements KeyStore {
   }
 }
 
-final Server _server = Server(
-  id: 'srv1',
-  name: 'My server',
-  baseUrl: Uri.parse('https://plausible.example.org'),
-);
+final Server _server = Server(id: 'srv1', name: 'My server', baseUrl: Uri.parse('https://plausible.example.org'));
 final Site _site = Site(id: 'site1', serverId: 'srv1', domain: 'example.com');
 
 /// Pass a server for edit mode, nothing for create mode. The stored config
@@ -87,10 +83,7 @@ void main() {
   });
 
   testWidgets('Re-check forgets the stored version', (WidgetTester tester) async {
-    final ProviderContainer container = await _pump(
-      tester,
-      server: _server.copyWith(apiVersion: ApiVersion.v2),
-    );
+    final ProviderContainer container = await _pump(tester, server: _server.copyWith(apiVersion: ApiVersion.v2));
 
     await tester.tap(find.widgetWithText(TextButton, 'Re-check'));
     await tester.pumpAndSettle();
@@ -98,17 +91,11 @@ void main() {
     expect(container.read(configProvider).servers.single.apiVersion, ApiVersion.unknown);
     // The row watches the config, so it follows the write without a reopen.
     expect(find.text('Not detected yet'), findsOneWidget);
-    expect(
-      find.text('Cleared. The next stats load detects it again.'),
-      findsOneWidget,
-    );
+    expect(find.text('Cleared. The next stats load detects it again.'), findsOneWidget);
   });
 
   testWidgets('saving a different base url forgets the detected version', (WidgetTester tester) async {
-    final ProviderContainer container = await _pump(
-      tester,
-      server: _server.copyWith(apiVersion: ApiVersion.v2),
-    );
+    final ProviderContainer container = await _pump(tester, server: _server.copyWith(apiVersion: ApiVersion.v2));
 
     await tester.enterText(
       find.ancestor(of: find.text('Base URL'), matching: find.byType(TextFormField)),

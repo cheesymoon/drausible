@@ -127,10 +127,7 @@ class PlausibleApiWithFallback implements PlausibleApi {
         _v2ProbeUrl,
         () => _client.post(
           _v2ProbeUrl,
-          headers: <String, String>{
-            'Authorization': 'Bearer $_apiKey',
-            'Content-Type': 'application/json',
-          },
+          headers: <String, String>{'Authorization': 'Bearer $_apiKey', 'Content-Type': 'application/json'},
           body: jsonEncode(<String, dynamic>{
             'site_id': siteId,
             'metrics': const <String>['visitors'],

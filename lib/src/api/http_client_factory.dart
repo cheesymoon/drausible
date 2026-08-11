@@ -11,8 +11,7 @@ import '../models/server.dart';
 import 'api_http.dart';
 
 http.Client buildClientFor(ProxyConfig? proxy) {
-  final HttpClient httpClient = HttpClient()
-    ..connectionTimeout = requestTimeout(isProxied: proxy != null);
+  final HttpClient httpClient = HttpClient()..connectionTimeout = requestTimeout(isProxied: proxy != null);
 
   if (proxy != null) {
     // ProxySettings wants an InternetAddress, not a hostname; the UI

@@ -30,8 +30,10 @@ class RealtimeApi {
   }
 
   Uri _visitorsUrl(String siteId) {
-    return joinApiPath(_baseUrl, '/api/v1/stats/realtime/visitors')
-        .replace(queryParameters: <String, String>{'site_id': siteId});
+    return joinApiPath(
+      _baseUrl,
+      '/api/v1/stats/realtime/visitors',
+    ).replace(queryParameters: <String, String>{'site_id': siteId});
   }
 
   Future<http.Response> _send(Uri url) {

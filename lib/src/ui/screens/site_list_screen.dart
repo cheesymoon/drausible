@@ -19,11 +19,7 @@ class SiteListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<Site> sites = ref
-        .watch(configProvider)
-        .sites
-        .where((Site site) => site.serverId == server.id)
-        .toList();
+    final List<Site> sites = ref.watch(configProvider).sites.where((Site site) => site.serverId == server.id).toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(server.name)),
@@ -71,14 +67,8 @@ class SiteListScreen extends ConsumerWidget {
         title: const Text('Delete site?'),
         content: Text('Remove ${site.displayName ?? site.domain}.'),
         actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -210,9 +200,7 @@ class _EmptyState extends StatelessWidget {
               'Plausible servers don\'t let the app list your sites, so you add '
               'them by domain. Sites are added one by one. Long-press a site to remove it.',
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -231,9 +219,7 @@ class _AddSiteDialog extends StatefulWidget {
 }
 
 class _AddSiteDialogState extends State<_AddSiteDialog> {
-  static final RegExp _domainPattern = RegExp(
-    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$',
-  );
+  static final RegExp _domainPattern = RegExp(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$');
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _domainController = TextEditingController();
@@ -260,7 +246,8 @@ class _AddSiteDialogState extends State<_AddSiteDialog> {
               decoration: const InputDecoration(
                 labelText: 'Domain',
                 hintText: 'example.com',
-                helperText: 'Exactly as it appears in your Plausible dashboard:\n'
+                helperText:
+                    'Exactly as it appears in your Plausible dashboard:\n'
                     'the part after the host in its URL, e.g. /example.com.\n'
                     'It can differ from the server\'s own domain.',
                 helperMaxLines: 3,

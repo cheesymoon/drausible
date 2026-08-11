@@ -21,12 +21,9 @@ class PlausibleApiV1 implements PlausibleApi {
 
   @override
   Future<AggregateStats> aggregate(String siteId, DateRangeSel range) async {
-    final _V1Response response = await _get(
-      '/api/v1/stats/aggregate',
-      siteId,
-      range,
-      const <String, String>{'metrics': 'visitors,pageviews,bounce_rate,visit_duration'},
-    );
+    final _V1Response response = await _get('/api/v1/stats/aggregate', siteId, range, const <String, String>{
+      'metrics': 'visitors,pageviews,bounce_rate,visit_duration',
+    });
     try {
       final Map<String, dynamic> results = response.json['results'] as Map<String, dynamic>;
       return AggregateStats(
@@ -44,12 +41,9 @@ class PlausibleApiV1 implements PlausibleApi {
   Future<List<TimeseriesPoint>> timeseries(String siteId, DateRangeSel range) async {
     // No interval parameter: v1 only accepts day/month there and rejects hour
     // with a 400, so the server's own default per period is the one that works.
-    final _V1Response response = await _get(
-      '/api/v1/stats/timeseries',
-      siteId,
-      range,
-      const <String, String>{'metrics': 'visitors'},
-    );
+    final _V1Response response = await _get('/api/v1/stats/timeseries', siteId, range, const <String, String>{
+      'metrics': 'visitors',
+    });
     try {
       final List<dynamic> results = response.json['results'] as List<dynamic>;
       // No gap-fill here: v1 has no meta.time_labels and fills empty buckets
@@ -128,12 +122,7 @@ class PlausibleApiV1 implements PlausibleApi {
     }
   }
 
-  Future<_V1Response> _get(
-    String path,
-    String siteId,
-    DateRangeSel range,
-    Map<String, String> params,
-  ) async {
+  Future<_V1Response> _get(String path, String siteId, DateRangeSel range, Map<String, String> params) async {
     final String? date = range.v1Date;
     final Uri url = joinApiPath(_baseUrl, path).replace(
       queryParameters: <String, String>{

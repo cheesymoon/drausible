@@ -14,8 +14,7 @@ class ProxyConfig {
   }
 
   @override
-  bool operator ==(Object other) =>
-      other is ProxyConfig && other.host == host && other.port == port;
+  bool operator ==(Object other) => other is ProxyConfig && other.host == host && other.port == port;
 
   @override
   int get hashCode => Object.hash(host, port);
@@ -40,13 +39,7 @@ class Server {
 
   /// Pass clearProxy: true to remove an existing proxy (proxy: null alone is
   /// indistinguishable from "leave unchanged").
-  Server copyWith({
-    String? name,
-    Uri? baseUrl,
-    ProxyConfig? proxy,
-    bool clearProxy = false,
-    ApiVersion? apiVersion,
-  }) {
+  Server copyWith({String? name, Uri? baseUrl, ProxyConfig? proxy, bool clearProxy = false, ApiVersion? apiVersion}) {
     return Server(
       id: id,
       name: name ?? this.name,

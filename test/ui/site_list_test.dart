@@ -32,11 +32,7 @@ class FakeKeyStore implements KeyStore {
   }
 }
 
-final Server _server = Server(
-  id: 'srv1',
-  name: 'My server',
-  baseUrl: Uri.parse('https://plausible.example.org'),
-);
+final Server _server = Server(id: 'srv1', name: 'My server', baseUrl: Uri.parse('https://plausible.example.org'));
 final Site _site = Site(id: 'site1', serverId: 'srv1', domain: 'example.com');
 const ({String serverId, String siteId}) _previewArgs = (serverId: 'srv1', siteId: 'site1');
 
@@ -90,9 +86,7 @@ void main() {
 
   testWidgets('long-press opens delete confirm and deleting removes the row', (WidgetTester tester) async {
     await _pump(tester, <Override>[
-      sitePreviewProvider(
-        _previewArgs,
-      ).overrideWith((Ref ref) async => (visitors: 5, points: <TimeseriesPoint>[])),
+      sitePreviewProvider(_previewArgs).overrideWith((Ref ref) async => (visitors: 5, points: <TimeseriesPoint>[])),
     ]);
 
     expect(find.text('example.com'), findsOneWidget);

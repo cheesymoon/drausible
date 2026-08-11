@@ -62,8 +62,7 @@ class DateRangeSel {
   /// Value to send as the v1 "date" query parameter: an inclusive
   /// "YYYY-MM-DD,YYYY-MM-DD" pair for a custom range, null for presets (whose
   /// window is already implied by [v1Period]).
-  String? get v1Date =>
-      _preset == _Preset.custom ? '${_isoDate(from!)},${_isoDate(to!)}' : null;
+  String? get v1Date => _preset == _Preset.custom ? '${_isoDate(from!)},${_isoDate(to!)}' : null;
 
   /// Query dimension for a timeseries: hourly buckets for "day", daily
   /// buckets otherwise.
@@ -131,9 +130,7 @@ class DateRangeSel {
 
   /// "YYYY-M-D" with an optional " H:M(:S)" or "TH:M(:S)" clock, any part
   /// allowed to be unpadded.
-  static final RegExp _looseLabel = RegExp(
-    r'^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$',
-  );
+  static final RegExp _looseLabel = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$');
 
   static String _isoDate(DateTime date) => DateFormat('yyyy-MM-dd').format(date);
 

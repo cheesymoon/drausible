@@ -14,9 +14,7 @@ final FutureProvider<SharedPreferences> sharedPreferencesProvider = FutureProvid
   (ref) => SharedPreferences.getInstance(),
 );
 
-final FutureProvider<ConfigRepository> configRepositoryProvider = FutureProvider<ConfigRepository>((
-  ref,
-) async {
+final FutureProvider<ConfigRepository> configRepositoryProvider = FutureProvider<ConfigRepository>((ref) async {
   final SharedPreferences prefs = await ref.watch(sharedPreferencesProvider.future);
   final KeyStore keyStore = ref.watch(keyStoreProvider);
   return ConfigRepository(prefs: prefs, keyStore: keyStore);
@@ -68,5 +66,6 @@ class ConfigNotifier extends Notifier<ConfigState> {
   }
 }
 
-final NotifierProvider<ConfigNotifier, ConfigState> configProvider =
-    NotifierProvider<ConfigNotifier, ConfigState>(ConfigNotifier.new);
+final NotifierProvider<ConfigNotifier, ConfigState> configProvider = NotifierProvider<ConfigNotifier, ConfigState>(
+  ConfigNotifier.new,
+);

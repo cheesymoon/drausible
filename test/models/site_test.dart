@@ -5,12 +5,7 @@ import 'package:drausible/src/models/site.dart';
 void main() {
   group('Site', () {
     test('round-trips through json with a display name', () {
-      final Site site = Site(
-        id: 's1',
-        serverId: 'srv1',
-        domain: 'example.com',
-        displayName: 'Example',
-      );
+      final Site site = Site(id: 's1', serverId: 'srv1', domain: 'example.com', displayName: 'Example');
 
       final Site decoded = Site.fromJson(site.toJson());
 

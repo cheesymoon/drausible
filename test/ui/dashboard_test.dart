@@ -30,12 +30,7 @@ class _StoredConfig extends ConfigNotifier {
 
 OverviewData _fakeOverview({int visitors = 1423, int pageviews = 3200}) {
   return OverviewData(
-    aggregate: AggregateStats(
-      visitors: visitors,
-      pageviews: pageviews,
-      bounceRate: 47,
-      visitDurationSeconds: 161,
-    ),
+    aggregate: AggregateStats(visitors: visitors, pageviews: pageviews, bounceRate: 47, visitDurationSeconds: 161),
     timeseries: <TimeseriesPoint>[
       TimeseriesPoint(time: DateTime(2026, 7, 1), visitors: 10),
       TimeseriesPoint(time: DateTime(2026, 7, 2), visitors: 20),
@@ -83,9 +78,7 @@ void main() {
   );
 
   testWidgets('shows the four metric values for the default 30-day range', (WidgetTester tester) async {
-    await _pump(tester, <Override>[
-      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
-    ]);
+    await _pump(tester, <Override>[overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview())]);
     await tester.pumpAndSettle();
 
     expect(find.text(NumberFormat.compact().format(1423)), findsOneWidget);
@@ -94,12 +87,8 @@ void main() {
     expect(find.text('2m 41s'), findsOneWidget);
   });
 
-  testWidgets('metric cards sit in one row on a wide (landscape) viewport', (
-    WidgetTester tester,
-  ) async {
-    await _pump(tester, <Override>[
-      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
-    ]);
+  testWidgets('metric cards sit in one row on a wide (landscape) viewport', (WidgetTester tester) async {
+    await _pump(tester, <Override>[overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview())]);
     tester.view.physicalSize = const Size(890, 420);
     await tester.pumpAndSettle();
 
@@ -110,9 +99,7 @@ void main() {
     expect((durationY - visitorsY).abs(), lessThan(40));
   });
 
-  testWidgets('switching the range chip queries the provider with the new range', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('switching the range chip queries the provider with the new range', (WidgetTester tester) async {
     await _pump(tester, <Override>[
       overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview(visitors: 1423)),
       overviewProvider(args7).overrideWith((Ref ref) async => _fakeOverview(visitors: 555)),
@@ -167,10 +154,7 @@ void main() {
     await _pump(tester, <Override>[
       overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
       breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
-      realtimeProvider((
-        serverId: _serverId,
-        siteId: _siteId,
-      )).overrideWith((Ref ref) => Stream<int>.value(23)),
+      realtimeProvider((serverId: _serverId, siteId: _siteId)).overrideWith((Ref ref) => Stream<int>.value(23)),
     ]);
     // The dot pulses forever once a value arrives, so pumpAndSettle would
     // time out here, so pump a fixed number of frames instead.
@@ -262,20 +246,16 @@ void main() {
   testWidgets('the tab height glides between two differently sized tabs', (WidgetTester tester) async {
     await _pump(tester, <Override>[
       overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
-      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith(
-        (Ref ref) async =>
-            fakeRows(<(String, int)>[for (int i = 0; i < 10; i++) ('/page$i', 100 - i)]),
-      ),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.page),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[for (int i = 0; i < 10; i++) ('/page$i', 100 - i)])),
       breakdownProvider(
         breakdownArgs(BreakdownDimension.source),
       ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('Direct / None', 5)])),
     ]);
     await tester.pumpAndSettle();
 
-    final Finder box = find.ancestor(
-      of: find.byKey(breakdownTabContentKey),
-      matching: find.byType(AnimatedSize),
-    );
+    final Finder box = find.ancestor(of: find.byKey(breakdownTabContentKey), matching: find.byType(AnimatedSize));
     final double tall = tester.getSize(box).height;
 
     await tester.ensureVisible(find.text('Sources'));
@@ -332,9 +312,7 @@ void main() {
     expect(find.text('Desktop'), findsNothing);
   });
 
-  testWidgets('a breakdown error shows a one-line message and a retry that recovers', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('a breakdown error shows a one-line message and a retry that recovers', (WidgetTester tester) async {
     int callCount = 0;
     await _pump(tester, <Override>[
       overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),

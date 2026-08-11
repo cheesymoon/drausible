@@ -66,9 +66,7 @@ class ConfigRepository {
     final List<dynamic> serversJson = json['servers'] as List<dynamic>? ?? <dynamic>[];
     final List<dynamic> sitesJson = json['sites'] as List<dynamic>? ?? <dynamic>[];
     return ConfigState(
-      servers: <Server>[
-        for (final dynamic s in serversJson) Server.fromJson(s as Map<String, dynamic>),
-      ],
+      servers: <Server>[for (final dynamic s in serversJson) Server.fromJson(s as Map<String, dynamic>)],
       sites: <Site>[for (final dynamic s in sitesJson) Site.fromJson(s as Map<String, dynamic>)],
     );
   }
@@ -105,8 +103,14 @@ class ConfigRepository {
   Future<ConfigState> deleteServer(String id) async {
     await _keyStore.delete(_apiKeyKey(id));
     _state = ConfigState(
-      servers: <Server>[for (final Server s in _state.servers) if (s.id != id) s],
-      sites: <Site>[for (final Site s in _state.sites) if (s.serverId != id) s],
+      servers: <Server>[
+        for (final Server s in _state.servers)
+          if (s.id != id) s,
+      ],
+      sites: <Site>[
+        for (final Site s in _state.sites)
+          if (s.serverId != id) s,
+      ],
     );
     await _persist();
     return _state;
@@ -130,7 +134,10 @@ class ConfigRepository {
   Future<ConfigState> deleteSite(String id) async {
     _state = ConfigState(
       servers: _state.servers,
-      sites: <Site>[for (final Site s in _state.sites) if (s.id != id) s],
+      sites: <Site>[
+        for (final Site s in _state.sites)
+          if (s.id != id) s,
+      ],
     );
     await _persist();
     return _state;

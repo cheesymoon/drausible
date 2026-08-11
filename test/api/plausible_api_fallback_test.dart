@@ -13,12 +13,8 @@ import 'package:drausible/src/models/stats.dart';
 
 Future<String> _fixture(String name) => File('test/fixtures/$name').readAsString();
 
-PlausibleApiWithFallback _api(http.Client client, ApiVersionResolver resolver) => PlausibleApiWithFallback(
-  client,
-  Uri.parse('https://plausible.example.org'),
-  'secret-key',
-  resolver: resolver,
-);
+PlausibleApiWithFallback _api(http.Client client, ApiVersionResolver resolver) =>
+    PlausibleApiWithFallback(client, Uri.parse('https://plausible.example.org'), 'secret-key', resolver: resolver);
 
 /// The probe is the only v2 request that asks for a single metric and no
 /// dimension.

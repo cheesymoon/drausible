@@ -54,12 +54,7 @@ class StatsRepository {
   final Map<String, int> _inFlight = <String, int>{};
   final Set<String> _reportWhenQuiet = <String>{};
 
-  Future<AggregateStats> aggregate(
-    Server server,
-    Site site,
-    DateRangeSel range, {
-    bool refresh = false,
-  }) {
+  Future<AggregateStats> aggregate(Server server, Site site, DateRangeSel range, {bool refresh = false}) {
     final _CacheKey key = (
       serverId: server.id,
       siteDomain: site.domain,
@@ -74,12 +69,7 @@ class StatsRepository {
     });
   }
 
-  Future<List<TimeseriesPoint>> timeseries(
-    Server server,
-    Site site,
-    DateRangeSel range, {
-    bool refresh = false,
-  }) {
+  Future<List<TimeseriesPoint>> timeseries(Server server, Site site, DateRangeSel range, {bool refresh = false}) {
     final _CacheKey key = (
       serverId: server.id,
       siteDomain: site.domain,
@@ -119,17 +109,10 @@ class StatsRepository {
   /// Drops every cached entry for one site. Pull-to-refresh calls this so the
   /// re-fetch actually hits the network instead of the 60s cache.
   void evictSite(String serverId, String siteDomain) {
-    _cache.removeWhere(
-      (_CacheKey key, _) => key.serverId == serverId && key.siteDomain == siteDomain,
-    );
+    _cache.removeWhere((_CacheKey key, _) => key.serverId == serverId && key.siteDomain == siteDomain);
   }
 
-  Future<T> _cached<T extends Object>(
-    Server server,
-    _CacheKey key,
-    bool refresh,
-    Future<T> Function() load,
-  ) async {
+  Future<T> _cached<T extends Object>(Server server, _CacheKey key, bool refresh, Future<T> Function() load) async {
     if (!refresh) {
       final _CacheEntry? entry = _cache[key];
       if (entry != null && _now().isBefore(entry.expiresAt)) {

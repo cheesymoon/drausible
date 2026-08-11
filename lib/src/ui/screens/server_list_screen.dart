@@ -10,6 +10,7 @@ import 'settings_screen.dart';
 import 'site_list_screen.dart';
 
 enum _ServerAction { edit, delete }
+
 enum _AppMenuAction { settings }
 
 class ServerListScreen extends ConsumerWidget {
@@ -27,11 +28,9 @@ class ServerListScreen extends ConsumerWidget {
               switch (action) {
                 case _AppMenuAction.settings:
                   unawaited(
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (BuildContext context) => const SettingsScreen(),
-                      ),
-                    ),
+                    Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute<void>(builder: (BuildContext context) => const SettingsScreen())),
                   );
               }
             },
@@ -63,9 +62,7 @@ class ServerListScreen extends ConsumerWidget {
                   onTap: () {
                     unawaited(
                       Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (BuildContext context) => SiteListScreen(server: server),
-                        ),
+                        MaterialPageRoute<void>(builder: (BuildContext context) => SiteListScreen(server: server)),
                       ),
                     );
                   },
@@ -75,11 +72,9 @@ class ServerListScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           unawaited(
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (BuildContext context) => const ServerEditScreen(),
-              ),
-            ),
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (BuildContext context) => const ServerEditScreen())),
           );
         },
         child: const Icon(Icons.add),
@@ -87,19 +82,12 @@ class ServerListScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _handleAction(
-    BuildContext context,
-    WidgetRef ref,
-    Server server,
-    _ServerAction action,
-  ) async {
+  Future<void> _handleAction(BuildContext context, WidgetRef ref, Server server, _ServerAction action) async {
     switch (action) {
       case _ServerAction.edit:
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (BuildContext context) => ServerEditScreen(server: server),
-          ),
-        );
+        await Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (BuildContext context) => ServerEditScreen(server: server)));
       case _ServerAction.delete:
         final bool? confirmed = await showDialog<bool>(
           context: context,
@@ -107,14 +95,8 @@ class ServerListScreen extends ConsumerWidget {
             title: const Text('Delete server?'),
             content: const Text('Its sites and API key go with it.'),
             actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete'),
-              ),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
             ],
           ),
         );
@@ -137,10 +119,7 @@ class _EmptyState extends StatelessWidget {
         children: <Widget>[
           Icon(Icons.dns_outlined, size: 64, color: colorScheme.outline),
           const SizedBox(height: 16),
-          Text(
-            'Add your first Plausible server',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('Add your first Plausible server', style: Theme.of(context).textTheme.titleMedium),
         ],
       ),
     );

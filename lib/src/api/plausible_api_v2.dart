@@ -13,8 +13,8 @@ import 'plausible_api.dart';
 
 class PlausibleApiV2 implements PlausibleApi {
   PlausibleApiV2(this._client, Uri baseUrl, this._apiKey, {bool isProxied = false})
-      : _queryUrl = joinApiPath(baseUrl, '/api/v2/query'),
-        _isProxied = isProxied;
+    : _queryUrl = joinApiPath(baseUrl, '/api/v2/query'),
+      _isProxied = isProxied;
 
   final http.Client _client;
   final String _apiKey;
@@ -63,10 +63,7 @@ class PlausibleApiV2 implements PlausibleApi {
       };
       return <TimeseriesPoint>[
         for (final dynamic label in timeLabels)
-          TimeseriesPoint(
-            time: range.parseTimeLabel(label as String),
-            visitors: visitorsByLabel[label] ?? 0,
-          ),
+          TimeseriesPoint(time: range.parseTimeLabel(label as String), visitors: visitorsByLabel[label] ?? 0),
       ];
     } catch (_) {
       throw ServerException(response.statusCode);
@@ -85,7 +82,9 @@ class PlausibleApiV2 implements PlausibleApi {
       'metrics': const <String>['visitors'],
       'date_range': range.v2DateRange,
       'dimensions': <String>[dimension.v2Dimension],
-      'order_by': const <List<String>>[<String>['visitors', 'desc']],
+      'order_by': const <List<String>>[
+        <String>['visitors', 'desc'],
+      ],
       'pagination': <String, dynamic>{'limit': limit},
     });
     try {

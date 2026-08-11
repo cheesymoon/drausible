@@ -19,8 +19,7 @@ class NetworkException extends ApiException {
   final bool isProxied;
 
   @override
-  String get message =>
-      isProxied ? 'Could not reach $host through the proxy' : 'Could not reach $host';
+  String get message => isProxied ? 'Could not reach $host through the proxy' : 'Could not reach $host';
 }
 
 class UnauthorizedException extends ApiException {

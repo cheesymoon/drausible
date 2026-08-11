@@ -19,11 +19,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v1_aggregate.json'), 200);
       });
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final AggregateStats stats = await api.aggregate('example.com', const DateRangeSel.d30());
 
@@ -52,11 +48,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v1_aggregate.json'), 200);
       });
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org/'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org/'), 'secret-key');
 
       await api.aggregate('example.com', const DateRangeSel.d30());
 
@@ -66,14 +58,11 @@ void main() {
 
     test('aggregate reads metrics by key and treats a null one as 0', () async {
       // Keys deliberately out of order, as a server is free to emit them.
-      const String body = '{"results": {"visit_duration": {"value": 90}, "bounce_rate": {"value": null}, '
+      const String body =
+          '{"results": {"visit_duration": {"value": 90}, "bounce_rate": {"value": null}, '
           '"pageviews": {"value": 7}, "visitors": {"value": 4}}}';
       final MockClient client = MockClient((http.Request request) async => http.Response(body, 200));
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final AggregateStats stats = await api.aggregate('example.com', const DateRangeSel.d30());
 
@@ -89,22 +78,14 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v1_timeseries.json'), 200);
       });
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final List<TimeseriesPoint> points = await api.timeseries('example.com', const DateRangeSel.d7());
 
       expect(captured!.url.path, '/api/v1/stats/timeseries');
       expect(
         captured!.url.queryParameters,
-        equals(<String, String>{
-          'site_id': 'example.com',
-          'period': '7d',
-          'metrics': 'visitors',
-        }),
+        equals(<String, String>{'site_id': 'example.com', 'period': '7d', 'metrics': 'visitors'}),
       );
       expect(points, hasLength(3));
       expect(points[0].time, DateTime(2024, 1, 13));
@@ -119,11 +100,7 @@ void main() {
       final MockClient client = MockClient(
         (http.Request request) async => http.Response(await _fixture('v1_timeseries_hourly.json'), 200),
       );
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final List<TimeseriesPoint> points = await api.timeseries('example.com', const DateRangeSel.day());
 
@@ -135,14 +112,11 @@ void main() {
     });
 
     test('timeseries reads a null visitors count as 0 and drops a row with no date', () async {
-      const String body = '{"results": [{"date": "2024-01-13", "visitors": null}, '
+      const String body =
+          '{"results": [{"date": "2024-01-13", "visitors": null}, '
           '{"date": null, "visitors": 5}, {"visitors": 9}, {"date": "2024-01-15", "visitors": 25}]}';
       final MockClient client = MockClient((http.Request request) async => http.Response(body, 200));
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final List<TimeseriesPoint> points = await api.timeseries('example.com', const DateRangeSel.d7());
 
@@ -155,15 +129,12 @@ void main() {
 
     test('breakdown drops rows with a null or missing dimension value and keeps the rest', () async {
       // What a server with no GeoIP database sends back.
-      const String body = '{"results": [{"country": "US", "visitors": 532}, '
+      const String body =
+          '{"results": [{"country": "US", "visitors": 532}, '
           '{"country": null, "visitors": 42}, {"visitors": 17}, '
           '{"country": "", "visitors": 3}, {"country": "DE", "visitors": null}]}';
       final MockClient client = MockClient((http.Request request) async => http.Response(body, 200));
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final List<BreakdownRow> rows = await api.breakdown(
         'example.com',
@@ -184,11 +155,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v1_timeseries.json'), 200);
       });
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       await api.timeseries('example.com', DateRangeSel.custom(DateTime(2024, 1, 3), DateTime(2024, 2, 7)));
 
@@ -209,11 +176,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v1_breakdown.json'), 200);
       });
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final List<BreakdownRow> rows = await api.breakdown(
         'example.com',
@@ -245,11 +208,7 @@ void main() {
         captured = request;
         return http.Response(body, 200);
       });
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final List<BreakdownRow> rows = await api.breakdown(
         'example.com',
@@ -274,26 +233,17 @@ void main() {
 
     test('401 throws UnauthorizedException', () {
       final PlausibleApiV1 api = apiReturning(401, '{}');
-      expect(
-        () => api.aggregate('example.com', const DateRangeSel.d30()),
-        throwsA(isA<UnauthorizedException>()),
-      );
+      expect(() => api.aggregate('example.com', const DateRangeSel.d30()), throwsA(isA<UnauthorizedException>()));
     });
 
     test('404 throws NotFoundEndpointException', () {
       final PlausibleApiV1 api = apiReturning(404, '{}');
-      expect(
-        () => api.aggregate('example.com', const DateRangeSel.d30()),
-        throwsA(isA<NotFoundEndpointException>()),
-      );
+      expect(() => api.aggregate('example.com', const DateRangeSel.d30()), throwsA(isA<NotFoundEndpointException>()));
     });
 
     test('429 throws RateLimitedException', () {
       final PlausibleApiV1 api = apiReturning(429, '{}');
-      expect(
-        () => api.aggregate('example.com', const DateRangeSel.d30()),
-        throwsA(isA<RateLimitedException>()),
-      );
+      expect(() => api.aggregate('example.com', const DateRangeSel.d30()), throwsA(isA<RateLimitedException>()));
     });
 
     test('500 throws ServerException with the status code', () {
@@ -324,11 +274,7 @@ void main() {
       final MockClient client = MockClient((http.Request request) async {
         throw const SocketException('connection refused');
       });
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       expect(
         () => api.aggregate('example.com', const DateRangeSel.d30()),
@@ -340,11 +286,7 @@ void main() {
       final MockClient client = MockClient((http.Request request) async {
         throw http.ClientException('Connection closed before full header was received');
       });
-      final PlausibleApiV1 api = PlausibleApiV1(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       expect(
         () => api.aggregate('example.com', const DateRangeSel.d30()),

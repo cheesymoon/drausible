@@ -61,11 +61,7 @@ void main() {
     });
 
     test('defaults to unknown for missing data', () {
-      final Server server = Server(
-        id: 'id',
-        name: 'name',
-        baseUrl: Uri.parse('https://a.example'),
-      );
+      final Server server = Server(id: 'id', name: 'name', baseUrl: Uri.parse('https://a.example'));
 
       expect(server.apiVersion, ApiVersion.unknown);
     });

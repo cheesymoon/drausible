@@ -75,10 +75,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _urlController,
-              decoration: const InputDecoration(
-                labelText: 'Base URL',
-                hintText: 'https://plausible.example.org',
-              ),
+              decoration: const InputDecoration(labelText: 'Base URL', hintText: 'https://plausible.example.org'),
               keyboardType: TextInputType.url,
               validator: _validateUrl,
             ),
@@ -106,10 +103,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
             if (_useProxy) ...<Widget>[
               TextFormField(
                 controller: _proxyHostController,
-                decoration: const InputDecoration(
-                  labelText: 'Proxy host',
-                  helperText: 'IP address, e.g. 127.0.0.1',
-                ),
+                decoration: const InputDecoration(labelText: 'Proxy host', helperText: 'IP address, e.g. 127.0.0.1'),
                 // The SOCKS client wants a literal IP; hostnames would only
                 // blow up later when the first request goes out.
                 validator: (String? value) {
@@ -136,10 +130,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
             ],
             if (_isEditing) _buildApiVersionRow(),
             const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _saving ? null : () => unawaited(_save()),
-              child: const Text('Save'),
-            ),
+            FilledButton(onPressed: _saving ? null : () => unawaited(_save()), child: const Text('Save')),
           ],
         ),
       ),
@@ -153,9 +144,8 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
     final Server server = widget.server!;
     final ApiVersion version = ref.watch(
       configProvider.select(
-        (ConfigState config) => config.servers
-            .firstWhere((Server s) => s.id == server.id, orElse: () => server)
-            .apiVersion,
+        (ConfigState config) =>
+            config.servers.firstWhere((Server s) => s.id == server.id, orElse: () => server).apiVersion,
       ),
     );
 
@@ -163,10 +153,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
       contentPadding: EdgeInsets.zero,
       title: const Text('Stats API'),
       subtitle: Text(_versionLabel(version)),
-      trailing: TextButton(
-        onPressed: () => unawaited(_reCheck(server.id)),
-        child: const Text('Re-check'),
-      ),
+      trailing: TextButton(onPressed: () => unawaited(_reCheck(server.id)), child: const Text('Re-check')),
     );
   }
 
@@ -180,10 +167,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
   /// next stats load works it out again.
   Future<void> _reCheck(String serverId) async {
     final ConfigState config = ref.read(configProvider);
-    final Server current = config.servers.firstWhere(
-      (Server s) => s.id == serverId,
-      orElse: () => widget.server!,
-    );
+    final Server current = config.servers.firstWhere((Server s) => s.id == serverId, orElse: () => widget.server!);
 
     // The write has to land before the invalidate: the resolver seeds itself
     // from the config it is built with, so dropping it first would only bring
@@ -199,9 +183,9 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
       repository.evictSite(serverId, site.domain);
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cleared. The next stats load detects it again.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Cleared. The next stats load detects it again.')));
   }
 
   String? _validateApiKey(String? value) {
@@ -241,12 +225,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
     final ConfigNotifier notifier = ref.read(configProvider.notifier);
     final Server? existing = widget.server;
     if (existing == null) {
-      final Server server = Server(
-        id: generateId(),
-        name: _nameController.text.trim(),
-        baseUrl: baseUrl,
-        proxy: proxy,
-      );
+      final Server server = Server(id: generateId(), name: _nameController.text.trim(), baseUrl: baseUrl, proxy: proxy);
       await notifier.addServer(server, apiKey!);
     } else {
       // A different host is a different server: what the old one spoke says

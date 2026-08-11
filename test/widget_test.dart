@@ -49,10 +49,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.widgetWithText(TextFormField, 'Server name'), 'My server');
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Base URL'),
-      'https://plausible.example.org',
-    );
+    await tester.enterText(find.widgetWithText(TextFormField, 'Base URL'), 'https://plausible.example.org');
     await tester.enterText(find.widgetWithText(TextFormField, 'API key'), 'secret-key');
 
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));

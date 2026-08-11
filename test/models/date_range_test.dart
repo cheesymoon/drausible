@@ -14,13 +14,7 @@ void main() {
           (range: const DateRangeSel.mo12(), shorthand: '12mo', timeDimension: 'time', label: '12 months'),
         ];
 
-    for (final (
-          :DateRangeSel range,
-          :String shorthand,
-          :String timeDimension,
-          :String label,
-        )
-        in cases) {
+    for (final (:DateRangeSel range, :String shorthand, :String timeDimension, :String label) in cases) {
       test('$shorthand maps shorthand, date range, time dimension and label', () {
         expect(range.v2Shorthand, shorthand);
         expect(range.v2DateRange, shorthand);
@@ -117,9 +111,7 @@ void main() {
     test('throws a FormatException naming the label it choked on', () {
       expect(
         () => range.parseTimeLabel('last tuesday'),
-        throwsA(
-          isA<FormatException>().having((FormatException e) => e.source, 'source', 'last tuesday'),
-        ),
+        throwsA(isA<FormatException>().having((FormatException e) => e.source, 'source', 'last tuesday')),
       );
     });
 

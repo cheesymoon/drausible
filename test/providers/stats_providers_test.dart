@@ -34,11 +34,7 @@ class FakeKeyStore implements KeyStore {
 
 Future<String> _fixture(String name) => File('test/fixtures/$name').readAsString();
 
-final Server _server = Server(
-  id: 'srv1',
-  name: 'My server',
-  baseUrl: Uri.parse('https://plausible.example.org'),
-);
+final Server _server = Server(id: 'srv1', name: 'My server', baseUrl: Uri.parse('https://plausible.example.org'));
 final Site _site = Site(id: 'site1', serverId: 'srv1', domain: 'example.com');
 const ({String serverId, String siteId, DateRangeSel range}) _overviewArgs = (
   serverId: 'srv1',
@@ -145,9 +141,7 @@ void main() {
   });
 
   // Fake time, so the 30s tick can be reached without waiting for it.
-  testWidgets('a rate limited tick reaches the stream, unlike other late failures', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('a rate limited tick reaches the stream, unlike other late failures', (WidgetTester tester) async {
     int calls = 0;
     final MockClient client = MockClient((http.Request request) async {
       calls++;
@@ -191,10 +185,10 @@ void main() {
     int configWrites = 0;
     container.listen(configProvider, (ConfigState? previous, ConfigState next) => configWrites++);
     // Keep the provider alive past the fetch so the config write re-runs it.
-    container.listen(overviewProvider(_overviewArgs), (
-      AsyncValue<OverviewData>? previous,
-      AsyncValue<OverviewData> next,
-    ) {});
+    container.listen(
+      overviewProvider(_overviewArgs),
+      (AsyncValue<OverviewData>? previous, AsyncValue<OverviewData> next) {},
+    );
 
     await container.read(overviewProvider(_overviewArgs).future);
     await pumpEventQueue();
@@ -254,9 +248,7 @@ void main() {
 
     // What "Re-check" does: forget the version, drop the resolver holding it,
     // and clear the stats that were fetched with it.
-    await container
-        .read(configProvider.notifier)
-        .updateServer(_server.copyWith(apiVersion: ApiVersion.unknown));
+    await container.read(configProvider.notifier).updateServer(_server.copyWith(apiVersion: ApiVersion.unknown));
     container.invalidate(apiVersionResolverProvider('srv1'));
     container.read(statsRepositoryProvider).evictSite('srv1', 'example.com');
 

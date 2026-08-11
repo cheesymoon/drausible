@@ -170,12 +170,8 @@ void main() {
       apiFactory: (Server server, String apiKey) => fakeApi,
     );
 
-    await repo.breakdown(
-        _buildServer(), _buildSite(), const DateRangeSel.d30(), BreakdownDimension.country,
-        limit: 5);
-    await repo.breakdown(
-        _buildServer(), _buildSite(), const DateRangeSel.d30(), BreakdownDimension.country,
-        limit: 15);
+    await repo.breakdown(_buildServer(), _buildSite(), const DateRangeSel.d30(), BreakdownDimension.country, limit: 5);
+    await repo.breakdown(_buildServer(), _buildSite(), const DateRangeSel.d30(), BreakdownDimension.country, limit: 15);
 
     expect(fakeApi.breakdownCalls, 2);
   });
@@ -188,12 +184,10 @@ void main() {
     );
 
     await repo.aggregate(_buildServer(), _buildSite(), const DateRangeSel.d30());
-    await repo.aggregate(
-        _buildServer(), _buildSite(id: 'site2', domain: 'other.com'), const DateRangeSel.d30());
+    await repo.aggregate(_buildServer(), _buildSite(id: 'site2', domain: 'other.com'), const DateRangeSel.d30());
     repo.evictSite('srv1', 'example.com');
     await repo.aggregate(_buildServer(), _buildSite(), const DateRangeSel.d30());
-    await repo.aggregate(
-        _buildServer(), _buildSite(id: 'site2', domain: 'other.com'), const DateRangeSel.d30());
+    await repo.aggregate(_buildServer(), _buildSite(id: 'site2', domain: 'other.com'), const DateRangeSel.d30());
 
     expect(fakeApi.aggregateCalls, 3); // example.com twice, other.com once
   });
@@ -204,8 +198,7 @@ void main() {
     final List<String> reported = <String>[];
     final StatsRepository repo = StatsRepository(
       getApiKey: (String serverId) async => 'key',
-      apiFactory: (Server server, String apiKey) =>
-          GatedPlausibleApi(aggregateGate.future, timeseriesGate.future),
+      apiFactory: (Server server, String apiKey) => GatedPlausibleApi(aggregateGate.future, timeseriesGate.future),
       onFetched: (Server server) => reported.add(server.id),
     );
 
@@ -232,15 +225,12 @@ void main() {
     final List<String> reported = <String>[];
     final StatsRepository repo = StatsRepository(
       getApiKey: (String serverId) async => 'key',
-      apiFactory: (Server server, String apiKey) =>
-          GatedPlausibleApi(aggregateGate.future, timeseriesGate.future),
+      apiFactory: (Server server, String apiKey) => GatedPlausibleApi(aggregateGate.future, timeseriesGate.future),
       onFetched: (Server server) => reported.add(server.id),
     );
 
-    final Future<AggregateStats> ok =
-        repo.aggregate(_buildServer(), _buildSite(), const DateRangeSel.d30());
-    final Future<List<TimeseriesPoint>> boom =
-        repo.timeseries(_buildServer(), _buildSite(), const DateRangeSel.d30());
+    final Future<AggregateStats> ok = repo.aggregate(_buildServer(), _buildSite(), const DateRangeSel.d30());
+    final Future<List<TimeseriesPoint>> boom = repo.timeseries(_buildServer(), _buildSite(), const DateRangeSel.d30());
 
     aggregateGate.complete();
     await pumpEventQueue();

@@ -20,11 +20,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v2_aggregate.json'), 200);
       });
-      final PlausibleApiV2 api = PlausibleApiV2(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final AggregateStats stats = await api.aggregate('example.com', const DateRangeSel.d30());
 
@@ -52,11 +48,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v2_aggregate.json'), 200);
       });
-      final PlausibleApiV2 api = PlausibleApiV2(
-        client,
-        Uri.parse('https://plausible.example.org/'),
-        'secret-key',
-      );
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org/'), 'secret-key');
 
       await api.aggregate('example.com', const DateRangeSel.d30());
 
@@ -69,11 +61,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v2_timeseries.json'), 200);
       });
-      final PlausibleApiV2 api = PlausibleApiV2(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final List<TimeseriesPoint> points = await api.timeseries('example.com', const DateRangeSel.day());
 
@@ -99,11 +87,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v2_timeseries.json'), 200);
       });
-      final PlausibleApiV2 api = PlausibleApiV2(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       await api.timeseries('example.com', DateRangeSel.custom(DateTime(2024, 1, 3), DateTime(2024, 2, 7)));
 
@@ -125,11 +109,7 @@ void main() {
         captured = request;
         return http.Response(await _fixture('v2_breakdown.json'), 200);
       });
-      final PlausibleApiV2 api = PlausibleApiV2(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       final List<BreakdownRow> rows = await api.breakdown(
         'example.com',
@@ -167,26 +147,17 @@ void main() {
 
     test('401 throws UnauthorizedException', () {
       final PlausibleApiV2 api = apiReturning(401, '{}');
-      expect(
-        () => api.aggregate('example.com', const DateRangeSel.d30()),
-        throwsA(isA<UnauthorizedException>()),
-      );
+      expect(() => api.aggregate('example.com', const DateRangeSel.d30()), throwsA(isA<UnauthorizedException>()));
     });
 
     test('404 throws NotFoundEndpointException', () {
       final PlausibleApiV2 api = apiReturning(404, '{}');
-      expect(
-        () => api.aggregate('example.com', const DateRangeSel.d30()),
-        throwsA(isA<NotFoundEndpointException>()),
-      );
+      expect(() => api.aggregate('example.com', const DateRangeSel.d30()), throwsA(isA<NotFoundEndpointException>()));
     });
 
     test('429 throws RateLimitedException', () {
       final PlausibleApiV2 api = apiReturning(429, '{}');
-      expect(
-        () => api.aggregate('example.com', const DateRangeSel.d30()),
-        throwsA(isA<RateLimitedException>()),
-      );
+      expect(() => api.aggregate('example.com', const DateRangeSel.d30()), throwsA(isA<RateLimitedException>()));
     });
 
     test('500 throws ServerException with the status code', () {
@@ -209,11 +180,7 @@ void main() {
       final MockClient client = MockClient((http.Request request) async {
         throw const SocketException('connection refused');
       });
-      final PlausibleApiV2 api = PlausibleApiV2(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       expect(
         () => api.aggregate('example.com', const DateRangeSel.d30()),
@@ -225,11 +192,7 @@ void main() {
       final MockClient client = MockClient((http.Request request) async {
         throw http.ClientException('Connection closed before full header was received');
       });
-      final PlausibleApiV2 api = PlausibleApiV2(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
       expect(
         () => api.aggregate('example.com', const DateRangeSel.d30()),
@@ -241,16 +204,9 @@ void main() {
       final MockClient client = MockClient((http.Request request) async {
         throw Exception('Command handling failed. With error: hostUnreachable');
       });
-      final PlausibleApiV2 api = PlausibleApiV2(
-        client,
-        Uri.parse('https://plausible.example.org'),
-        'secret-key',
-      );
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
 
-      expect(
-        () => api.aggregate('example.com', const DateRangeSel.d30()),
-        throwsA(isA<NetworkException>()),
-      );
+      expect(() => api.aggregate('example.com', const DateRangeSel.d30()), throwsA(isA<NetworkException>()));
     });
 
     test('a proxied client flags its NetworkException as proxied', () {

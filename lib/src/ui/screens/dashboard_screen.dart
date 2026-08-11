@@ -74,9 +74,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final Server? server = _serverOrNull();
     if (server == null) return;
     unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (BuildContext context) => ServerEditScreen(server: server)),
-      ),
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (BuildContext context) => ServerEditScreen(server: server))),
     );
   }
 
@@ -93,11 +93,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         onRefresh: () {
           // Evict first, otherwise the refetch would be served by the 60s cache.
           // The cache is keyed by domain, not by our site record id.
-          final String domain = ref
-              .read(configProvider)
-              .sites
-              .firstWhere((Site s) => s.id == widget.siteId)
-              .domain;
+          final String domain = ref.read(configProvider).sites.firstWhere((Site s) => s.id == widget.siteId).domain;
           ref.read(statsRepositoryProvider).evictSite(widget.serverId, domain);
           // Whole family: the visible breakdown tab must refetch too.
           ref.invalidate(breakdownProvider);
@@ -119,12 +115,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 // for it. A genuine first load has no value to keep, so it
                 // still gets the skeleton.
                 skipLoadingOnReload: true,
-                data: (OverviewData data) => _DashboardBody(
-                  serverId: widget.serverId,
-                  siteId: widget.siteId,
-                  data: data,
-                  range: _range,
-                ),
+                data: (OverviewData data) =>
+                    _DashboardBody(serverId: widget.serverId, siteId: widget.siteId, data: data, range: _range),
                 loading: () => const _DashboardSkeleton(),
                 error: (Object error, StackTrace stackTrace) => ErrorView(
                   error: error,
@@ -344,9 +336,7 @@ class _TimeseriesChart extends StatelessWidget {
     if (points.isEmpty) {
       return SizedBox(
         height: 200,
-        child: Center(
-          child: Text('No data for this range', style: Theme.of(context).textTheme.bodyMedium),
-        ),
+        child: Center(child: Text('No data for this range', style: Theme.of(context).textTheme.bodyMedium)),
       );
     }
 
@@ -374,8 +364,7 @@ class _TimeseriesChart extends StatelessWidget {
           gridData: FlGridData(
             drawVerticalLine: false,
             horizontalInterval: yInterval,
-            getDrawingHorizontalLine: (double value) =>
-                FlLine(color: colorScheme.outlineVariant, strokeWidth: 1),
+            getDrawingHorizontalLine: (double value) => FlLine(color: colorScheme.outlineVariant, strokeWidth: 1),
           ),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
@@ -458,13 +447,9 @@ _BottomAxis _bottomAxis(List<TimeseriesPoint> points, DateRangeSel range) {
     final DateFormat hourFormat = DateFormat('HH:00');
     return (label: (DateTime time) => hourFormat.format(time), interval: _tickInterval(points.length, 4));
   }
-  final bool isMonthly =
-      points.length >= 2 && points[1].time.difference(points[0].time).inDays >= 20;
+  final bool isMonthly = points.length >= 2 && points[1].time.difference(points[0].time).inDays >= 20;
   final DateFormat dayFormat = DateFormat(isMonthly ? 'MMM' : 'd MMM');
-  return (
-    label: (DateTime time) => dayFormat.format(time),
-    interval: _tickInterval(points.length, isMonthly ? 6 : 5),
-  );
+  return (label: (DateTime time) => dayFormat.format(time), interval: _tickInterval(points.length, isMonthly ? 6 : 5));
 }
 
 double _tickInterval(int pointCount, int desiredLabels) {
@@ -491,11 +476,17 @@ class _DashboardSkeleton extends StatelessWidget {
           crossAxisSpacing: 12,
           childAspectRatio: 1.6,
           children: <Widget>[
-            for (int i = 0; i < 4; i++) Container(decoration: BoxDecoration(color: color, borderRadius: radius)),
+            for (int i = 0; i < 4; i++)
+              Container(
+                decoration: BoxDecoration(color: color, borderRadius: radius),
+              ),
           ],
         ),
         const SizedBox(height: 16),
-        Container(height: 200, decoration: BoxDecoration(color: color, borderRadius: radius)),
+        Container(
+          height: 200,
+          decoration: BoxDecoration(color: color, borderRadius: radius),
+        ),
       ],
     );
   }
@@ -610,7 +601,11 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
     final Color color = widget.active ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.3);
     return FadeTransition(
       opacity: Tween<double>(begin: 0.35, end: 1).animate(_controller),
-      child: Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
     );
   }
 }
@@ -812,13 +807,10 @@ class _BreakdownList extends ConsumerWidget {
       // As on the overview above: a config write shouldn't blank rows that are
       // already on screen.
       skipLoadingOnReload: true,
-      data: (List<BreakdownRow> rows) =>
-          _BreakdownRows(rows: rows, isCountry: dimension == BreakdownDimension.country),
+      data: (List<BreakdownRow> rows) => _BreakdownRows(rows: rows, isCountry: dimension == BreakdownDimension.country),
       loading: () => const _BreakdownSkeleton(),
-      error: (Object error, StackTrace stackTrace) => InlineErrorView(
-        error: error,
-        onRetry: () => ref.invalidate(breakdownProvider(args)),
-      ),
+      error: (Object error, StackTrace stackTrace) =>
+          InlineErrorView(error: error, onRetry: () => ref.invalidate(breakdownProvider(args))),
     );
   }
 }
@@ -834,9 +826,7 @@ class _BreakdownRows extends StatelessWidget {
     if (rows.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: Text('No data for this range', style: Theme.of(context).textTheme.bodyMedium),
-        ),
+        child: Center(child: Text('No data for this range', style: Theme.of(context).textTheme.bodyMedium)),
       );
     }
 
@@ -875,12 +865,7 @@ class _BreakdownRows extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Row(
                       children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            rowLabel(row.name),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                        Expanded(child: Text(rowLabel(row.name), overflow: TextOverflow.ellipsis)),
                         const SizedBox(width: 8),
                         Text(compact.format(row.visitors)),
                       ],

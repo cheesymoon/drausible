@@ -64,11 +64,10 @@ otherwise, so an APK you build yourself will not install over a published one.
 ## Installing
 
 [![Get it on F-Droid](https://img.shields.io/badge/get%20it%20on-F--Droid-1976d2?logo=fdroid)](https://f-droid.org/packages/io.github.cheesymoon.drausible/)
-[![Get it on IzzyOnDroid](https://img.shields.io/badge/get%20it%20on-IzzyOnDroid-654ff0)](https://apt.izzysoft.de/fdroid/index/apk/io.github.cheesymoon.drausible)
 
-F-Droid, IzzyOnDroid and the GitHub release carry the same signature, so users can switch between
-them freely. IzzyOnDroid serves the arm64-v8a APK; armeabi-v7a users should use F-Droid or the
-GitHub release.
+F-Droid and the GitHub release carry the same signature, so you can switch between them without
+reinstalling. Each release has one APK per processor kind: take arm64-v8a unless you know your
+phone is older, in which case armeabi-v7a.
 
 ## License
 

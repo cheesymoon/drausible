@@ -10,6 +10,7 @@ import '../../models/site.dart';
 import '../../models/stats.dart';
 import '../../providers/config_providers.dart';
 import '../../providers/stats_providers.dart';
+import '../../repositories/stats_repository.dart';
 import 'dashboard_screen.dart';
 
 class SiteListScreen extends ConsumerWidget {
@@ -23,33 +24,37 @@ class SiteListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(server.name)),
-      body: sites.isEmpty
-          ? const _EmptyState()
-          : ListView.builder(
-              padding: EdgeInsets.only(bottom: 88 + MediaQuery.paddingOf(context).bottom),
-              itemCount: sites.length,
-              itemBuilder: (BuildContext context, int index) {
-                final Site site = sites[index];
-                final String title = site.displayName ?? site.domain;
-                return ListTile(
-                  title: Text(title),
-                  trailing: _SitePreview(serverId: server.id, siteId: site.id),
-                  onTap: () {
-                    unawaited(
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (BuildContext context) =>
-                              DashboardScreen(serverId: server.id, siteId: site.id, title: title),
+      body: RefreshIndicator(
+        onRefresh: () => _refreshSites(ref, sites),
+        child: sites.isEmpty
+            ? const _RefreshableEmptyState()
+            : ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.only(bottom: 88 + MediaQuery.paddingOf(context).bottom),
+                itemCount: sites.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final Site site = sites[index];
+                  final String title = site.displayName ?? site.domain;
+                  return ListTile(
+                    title: Text(title),
+                    trailing: _SitePreview(serverId: server.id, siteId: site.id),
+                    onTap: () {
+                      unawaited(
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext context) =>
+                                DashboardScreen(serverId: server.id, siteId: site.id, title: title),
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  onLongPress: () {
-                    unawaited(_confirmDelete(context, ref, site));
-                  },
-                );
-              },
-            ),
+                      );
+                    },
+                    onLongPress: () {
+                      unawaited(_confirmDelete(context, ref, site));
+                    },
+                  );
+                },
+              ),
+      ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Add site',
         onPressed: () {
@@ -58,6 +63,22 @@ class SiteListScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  Future<void> _refreshSites(WidgetRef ref, List<Site> sites) {
+    final StatsRepository repository = ref.read(statsRepositoryProvider);
+    for (final Site site in sites) {
+      repository.evictSite(server.id, site.domain);
+    }
+    return Future.wait<void>(<Future<void>>[
+      // A row that cannot load already draws as blank, so a failed preview is
+      // swallowed here too. Letting it through would hand RefreshIndicator a
+      // rejected future it never catches, and drop the sites queued behind it.
+      for (final Site site in sites)
+        ref
+            .refresh(sitePreviewProvider((serverId: server.id, siteId: site.id)).future)
+            .then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+    ]);
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Site site) async {
@@ -205,6 +226,25 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RefreshableEmptyState extends StatelessWidget {
+  const _RefreshableEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: const _EmptyState(),
+          ),
+        );
+      },
     );
   }
 }

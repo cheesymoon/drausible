@@ -34,14 +34,18 @@ class FakeKeyStore implements KeyStore {
 
 final Server _server = Server(id: 'srv1', name: 'My server', baseUrl: Uri.parse('https://plausible.example.org'));
 final Site _site = Site(id: 'site1', serverId: 'srv1', domain: 'example.com');
+final Site _otherSite = Site(id: 'site2', serverId: 'srv1', domain: 'other.example.com');
 const ({String serverId, String siteId}) _previewArgs = (serverId: 'srv1', siteId: 'site1');
+const ({String serverId, String siteId}) _otherPreviewArgs = (serverId: 'srv1', siteId: 'site2');
 
-Future<void> _pump(WidgetTester tester, List<Override> overrides) async {
+Future<void> _pump(WidgetTester tester, List<Override> overrides, {List<Site>? sites}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{
     'config_v1': jsonEncode(<String, dynamic>{
       'schemaVersion': 1,
       'servers': <dynamic>[_server.toJson()],
-      'sites': <dynamic>[_site.toJson()],
+      'sites': <dynamic>[
+        for (final Site site in sites ?? <Site>[_site]) site.toJson(),
+      ],
     }),
   });
   await tester.pumpWidget(
@@ -82,6 +86,52 @@ void main() {
     expect(tile, findsOneWidget);
     // Only the title Text remains, with no count rendered while the preview loads.
     expect(find.descendant(of: tile, matching: find.byType(Text)), findsOneWidget);
+  });
+
+  testWidgets('pull-to-refresh reloads site previews', (WidgetTester tester) async {
+    int loads = 0;
+    await _pump(tester, <Override>[
+      sitePreviewProvider(_previewArgs).overrideWith((Ref ref) async {
+        loads += 1;
+        return (visitors: loads, points: <TimeseriesPoint>[]);
+      }),
+    ]);
+
+    expect(loads, 1);
+    expect(find.text('1'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, 300));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(loads, 2);
+    expect(find.text('2'), findsOneWidget);
+  });
+
+  testWidgets('one failing preview does not stop the others refreshing', (WidgetTester tester) async {
+    int loads = 0;
+    await _pump(
+      tester,
+      <Override>[
+        sitePreviewProvider(_previewArgs).overrideWith((Ref ref) async => throw StateError('preview failed')),
+        sitePreviewProvider(_otherPreviewArgs).overrideWith((Ref ref) async {
+          loads += 1;
+          return (visitors: loads, points: <TimeseriesPoint>[]);
+        }),
+      ],
+      sites: <Site>[_site, _otherSite],
+    );
+
+    expect(loads, 1);
+
+    await tester.drag(find.byType(ListView), const Offset(0, 300));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // The rejected refresh must not reach RefreshIndicator, and must not
+    // cancel the sites queued behind it.
+    expect(loads, 2);
+    expect(find.text('2'), findsOneWidget);
   });
 
   testWidgets('long-press opens delete confirm and deleting removes the row', (WidgetTester tester) async {

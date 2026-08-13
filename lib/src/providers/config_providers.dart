@@ -3,12 +3,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../backup/backup_codec.dart';
 import '../models/server.dart';
 import '../models/site.dart';
 import '../repositories/config_repository.dart';
 
 /// Overridden with a fake in tests to avoid hitting the secure storage channel.
 final Provider<KeyStore> keyStoreProvider = Provider<KeyStore>((ref) => SecureKeyStore());
+
+final Provider<BackupCodec> backupCodecProvider = Provider<BackupCodec>((ref) => BackupCodec());
 
 final FutureProvider<SharedPreferences> sharedPreferencesProvider = FutureProvider<SharedPreferences>(
   (ref) => SharedPreferences.getInstance(),
@@ -63,6 +66,16 @@ class ConfigNotifier extends Notifier<ConfigState> {
   Future<String?> getApiKey(String serverId) async {
     final ConfigRepository repository = await _repository;
     return repository.getApiKey(serverId);
+  }
+
+  Future<BackupPayload> exportBackupPayload() async {
+    final ConfigRepository repository = await _repository;
+    return repository.exportAll();
+  }
+
+  Future<void> importBackup(BackupPayload payload) async {
+    final ConfigRepository repository = await _repository;
+    state = await repository.replaceAll(payload);
   }
 }
 

@@ -2,11 +2,8 @@
 
 ## [1.3.0](https://github.com/cheesymoon/drausible/compare/v1.2.0...v1.3.0) (2026-08-13)
 
-
-### Features
-
-* **android:** sign releases with the project key and split them per ABI ([cb4dfd8](https://github.com/cheesymoon/drausible/commit/cb4dfd8f1bd1c1a71b5ebc76575681b32d4135cc))
-* **release:** attach the signed APKs to the GitHub release ([590b735](https://github.com/cheesymoon/drausible/commit/590b73584530de57d77c478210c1e5a6e9f8c6d9))
+* Push Drausible to F-Dropid nad IzzyOnDroid. Same signature for all three (incl. GithHub)
+* Shrink the downloadable binary size: split builds by processor kind
 
 ## [1.2.0](https://github.com/cheesymoon/drausible/compare/v1.1.0...v1.2.0) (2026-08-13)
 

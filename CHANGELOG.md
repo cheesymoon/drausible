@@ -2,7 +2,7 @@
 
 ## [1.3.0](https://github.com/cheesymoon/drausible/compare/v1.2.0...v1.3.0) (2026-08-13)
 
-* Push Drausible to F-Droid and IzzyOnDroid. Same signature for all three (incl. GitHub)
+* Push Drausible to F-Droid. Same signature there and on the GitHub release
 * Shrink the downloadable binary size: split builds by processor kind
 
 ## [1.2.0](https://github.com/cheesymoon/drausible/compare/v1.1.0...v1.2.0) (2026-08-13)

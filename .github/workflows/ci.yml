@@ -29,11 +29,11 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: 3.32.8
+          flutter-version-file: .fvmrc
           cache: true
 
       - name: Install dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed .
@@ -63,11 +63,11 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: 3.32.8
+          flutter-version-file: .fvmrc
           cache: true
 
       - name: Install dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Build Android APK
-        run: flutter build apk --release
+        run: flutter build apk --release --split-per-abi

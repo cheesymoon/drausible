@@ -23,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
 
     steps:
       - name: Require release token
@@ -42,8 +45,122 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  publish-apks:
+    name: publish APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    env:
+      # F-Droid and this workflow build at the same project path so Flutter's
+      # generated registrant URI in libapp.so stays reproducible.
+      BUILD_DIR: /tmp/build
+      TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Copy source to reproducible path
+        run: |
+          rm -rf "$BUILD_DIR"
+          cp -a . "$BUILD_DIR"
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version-file: .fvmrc
+          cache: true
+
+      - name: Install dependencies
+        working-directory: ${{ env.BUILD_DIR }}
+        run: flutter pub get --enforce-lockfile
+
+      - name: Prepare release signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "Set ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD." >&2
+            exit 1
+          fi
+
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/drausible-release.jks"
+          {
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'storeFile=%s\n' "$RUNNER_TEMP/drausible-release.jks"
+          } > "$BUILD_DIR/android/key.properties"
+
+      - name: Build release APKs
+        working-directory: ${{ env.BUILD_DIR }}
+        run: flutter build apk --release --split-per-abi
+
+      - name: Assert split version codes
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          set -euo pipefail
+
+          base_version_code="$(sed -n 's/^version:[[:space:]]*[0-9][0-9.]*+\([0-9][0-9]*\)[[:space:]]*$/\1/p' pubspec.yaml)"
+          if [ -z "$base_version_code" ]; then
+            echo "Could not read base versionCode from pubspec.yaml" >&2
+            exit 1
+          fi
+
+          aapt2="$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f | sort -V | tail -n 1)"
+          if [ -z "$aapt2" ]; then
+            echo "Could not find aapt2 under ANDROID_HOME/build-tools" >&2
+            exit 1
+          fi
+
+          check_apk() {
+            apk="$1"
+            expected="$2"
+            actual="$("$aapt2" dump badging "$apk" | sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p")"
+            if [ "$actual" != "$expected" ]; then
+              echo "$apk has versionCode $actual, expected $expected" >&2
+              exit 1
+            fi
+          }
+
+          check_apk build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$((base_version_code * 10 + 1))"
+          check_apk build/app/outputs/flutter-apk/app-x86_64-release.apk "$((base_version_code * 10 + 2))"
+          check_apk build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "$((base_version_code * 10 + 3))"
+
+      - name: Stage release assets
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          set -euo pipefail
+
+          version="${TAG_NAME#v}"
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$RUNNER_TEMP/release-assets/drausible-${version}-armeabi-v7a.apk"
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk "$RUNNER_TEMP/release-assets/drausible-${version}-x86_64.apk"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "$RUNNER_TEMP/release-assets/drausible-${version}-arm64-v8a.apk"
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG_NAME" "$RUNNER_TEMP"/release-assets/*.apk --clobber
+
+      - name: Clean signing material
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/drausible-release.jks" "$BUILD_DIR/android/key.properties"
+
       - name: Stamp release assets on Gridcoin
-        if: ${{ steps.release.outputs.release_created }}
         continue-on-error: true
         uses: gridcat/gridcoin-stamp-action@653bdaa29abf87050b137a546be12a085c8657df
         # No token passed: the input defaults to github.token, which this
@@ -51,7 +168,7 @@ jobs:
         # release PAT would add, and a third-party action should see the
         # narrower of the two.
         with:
-          tag: ${{ steps.release.outputs.tag_name }}
+          tag: ${{ needs.release-please.outputs.tag_name }}
           wait-for-confirmation: false
 
   release-metadata:

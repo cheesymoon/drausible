@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/cheesymoon/drausible/compare/v1.3.0...v1.3.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* **docs:** drop the IzzyOnDroid listing ([b39b19f](https://github.com/cheesymoon/drausible/commit/b39b19f28577539fb634f9804431c07e4b9e7a83))
+
 ## [1.3.0](https://github.com/cheesymoon/drausible/compare/v1.2.0...v1.3.0) (2026-08-13)
 
 * Push Drausible to F-Droid. Same signature there and on the GitHub release

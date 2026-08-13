@@ -49,7 +49,6 @@ awk -v replacement="$replacement" '
 mv "$tmp_pubspec" "$pubspec"
 
 mkdir -p "$fastlane_dir"
-fastlane_changelog="${fastlane_dir}/${version_code}.txt"
 tmp_notes="$(mktemp)"
 
 awk -v version="$version_name" '
@@ -105,7 +104,19 @@ if (( note_length > 500 )); then
   exit 1
 fi
 
-mv "$tmp_notes" "$fastlane_changelog"
+split_version_codes=(
+  "$((version_code * 10 + 1))"
+  "$((version_code * 10 + 2))"
+  "$((version_code * 10 + 3))"
+)
+
+written_changelogs=()
+for split_version_code in "${split_version_codes[@]}"; do
+  fastlane_changelog="${fastlane_dir}/${split_version_code}.txt"
+  cp "$tmp_notes" "$fastlane_changelog"
+  written_changelogs+=("$fastlane_changelog")
+done
+rm "$tmp_notes"
 
 echo "Set pubspec version to ${version_name}+${version_code}"
-echo "Wrote ${fastlane_changelog}"
+printf 'Wrote %s\n' "${written_changelogs[@]}"

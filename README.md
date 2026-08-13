@@ -51,15 +51,24 @@ The app tries `POST /api/v2/query` first. Servers old enough to 404 on it fall b
 
 ## Building
 
-Flutter is pinned to the 3.32 line. Newer versions require minSdk 24, and this app runs on Android 5.0.
+Flutter is pinned in `.fvmrc` to the 3.32 line. Newer versions require minSdk 24, and this app runs on Android 5.0.
 
 ```
-flutter pub get
-flutter build apk --release
+flutter pub get --enforce-lockfile
+flutter build apk --release --split-per-abi
 ```
 
-Release builds here are signed with the debug key, so an APK you build yourself will not install
-over one from F-Droid.
+Release builds use the project key when `android/key.properties` is present and the debug key
+otherwise, so an APK you build yourself will not install over a published one.
+
+## Installing
+
+[![Get it on F-Droid](https://img.shields.io/badge/get%20it%20on-F--Droid-1976d2?logo=fdroid)](https://f-droid.org/packages/io.github.cheesymoon.drausible/)
+[![Get it on IzzyOnDroid](https://img.shields.io/badge/get%20it%20on-IzzyOnDroid-654ff0)](https://apt.izzysoft.de/fdroid/index/apk/io.github.cheesymoon.drausible)
+
+F-Droid, IzzyOnDroid and the GitHub release carry the same signature, so users can switch between
+them freely. IzzyOnDroid serves the arm64-v8a APK; armeabi-v7a users should use F-Droid or the
+GitHub release.
 
 ## License
 

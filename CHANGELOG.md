@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/cheesymoon/drausible/compare/v1.1.0...v1.2.0) (2026-08-13)
+
+
+### Features
+
+* **backup:** carry a config between devices without exposing the keys ([0594e8f](https://github.com/cheesymoon/drausible/commit/0594e8f852e30e4c882d859e7dab028ff1eb3f81))
+* **sites:** pull the site list to refresh it ([08d5af5](https://github.com/cheesymoon/drausible/commit/08d5af53a1585b4ace667a254fa234f534c87048))
+
 ## [1.1.0](https://github.com/cheesymoon/drausible/compare/v1.0.0...v1.1.0) (2026-08-11)
 
 

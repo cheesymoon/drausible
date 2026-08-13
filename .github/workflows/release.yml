@@ -200,13 +200,19 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
-          if git diff --quiet -- pubspec.yaml fastlane/metadata/android/en-US/changelogs; then
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml fastlane/metadata/android/en-US/changelogs
+
+          # Stage before checking, because the changelogs are new files on every
+          # release and `git diff` on the working tree cannot see those. On a
+          # patch release release-please already lands the versionCode we want,
+          # so the changelogs are the only change and the whole step used to
+          # skip itself.
+          if git diff --cached --quiet; then
             echo "Release metadata is already up to date."
             exit 0
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pubspec.yaml fastlane/metadata/android/en-US/changelogs
           git commit -m "chore: update release metadata"
           git push origin "HEAD:${HEAD_REF}"

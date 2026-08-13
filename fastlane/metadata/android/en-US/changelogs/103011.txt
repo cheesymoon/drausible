@@ -1,0 +1,2 @@
+* Push Drausible to F-Droid. Same signature there and on the GitHub release
+* Shrink the downloadable binary size: split builds by processor kind

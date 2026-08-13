@@ -1,2 +1,2 @@
-* Push Drausible to F-Dropid nad IzzyOnDroid. Same signature for all three (incl. GithHub)
+* Push Drausible to F-Droid and IzzyOnDroid. Same signature for all three (incl. GitHub)
 * Shrink the downloadable binary size: split builds by processor kind

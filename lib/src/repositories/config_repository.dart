@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../backup/backup_codec.dart';
 import '../models/server.dart';
 import '../models/site.dart';
 
@@ -72,10 +73,14 @@ class ConfigRepository {
   }
 
   Future<void> _persist() async {
+    await _persistState(_state);
+  }
+
+  Future<void> _persistState(ConfigState state) async {
     final Map<String, dynamic> json = <String, dynamic>{
       'schemaVersion': _schemaVersion,
-      'servers': <dynamic>[for (final Server s in _state.servers) s.toJson()],
-      'sites': <dynamic>[for (final Site s in _state.sites) s.toJson()],
+      'servers': <dynamic>[for (final Server s in state.servers) s.toJson()],
+      'sites': <dynamic>[for (final Site s in state.sites) s.toJson()],
     };
     await _prefs.setString(_configKey, jsonEncode(json));
   }
@@ -144,4 +149,64 @@ class ConfigRepository {
   }
 
   Future<String?> getApiKey(String serverId) => _keyStore.read(_apiKeyKey(serverId));
+
+  Future<BackupPayload> exportAll() async {
+    final Map<String, String> apiKeys = <String, String>{};
+    for (final Server server in _state.servers) {
+      final String? apiKey = await _keyStore.read(_apiKeyKey(server.id));
+      if (apiKey != null) {
+        apiKeys[server.id] = apiKey;
+      }
+    }
+    return BackupPayload(servers: _state.servers, sites: _state.sites, apiKeys: apiKeys);
+  }
+
+  Future<ConfigState> replaceAll(BackupPayload payload) async {
+    final Set<String> incomingServerIds = <String>{for (final Server server in payload.servers) server.id};
+    final Map<String, String> incomingApiKeys = <String, String>{
+      for (final MapEntry<String, String> entry in payload.apiKeys.entries)
+        if (incomingServerIds.contains(entry.key)) entry.key: entry.value,
+    };
+    final Set<String> touchedServerIds = <String>{
+      for (final Server server in _state.servers) server.id,
+      ...incomingServerIds,
+    };
+    final Map<String, String?> previousApiKeys = <String, String?>{};
+    for (final String serverId in touchedServerIds) {
+      previousApiKeys[serverId] = await _keyStore.read(_apiKeyKey(serverId));
+    }
+
+    try {
+      for (final MapEntry<String, String> entry in incomingApiKeys.entries) {
+        await _keyStore.write(_apiKeyKey(entry.key), entry.value);
+      }
+
+      for (final String serverId in touchedServerIds) {
+        if (!incomingApiKeys.containsKey(serverId)) {
+          await _keyStore.delete(_apiKeyKey(serverId));
+        }
+      }
+
+      final ConfigState nextState = ConfigState(servers: payload.servers, sites: payload.sites);
+      await _persistState(nextState);
+
+      _state = nextState;
+      return _state;
+    } on Object {
+      await _restoreApiKeys(previousApiKeys);
+      rethrow;
+    }
+  }
+
+  Future<void> _restoreApiKeys(Map<String, String?> apiKeys) async {
+    for (final MapEntry<String, String?> entry in apiKeys.entries) {
+      final String key = _apiKeyKey(entry.key);
+      final String? value = entry.value;
+      if (value == null) {
+        await _keyStore.delete(key);
+      } else {
+        await _keyStore.write(key, value);
+      }
+    }
+  }
 }

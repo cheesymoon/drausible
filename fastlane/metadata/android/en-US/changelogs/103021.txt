@@ -1,0 +1,1 @@
+* Rewrite the F-Droid listing text. The app itself is unchanged

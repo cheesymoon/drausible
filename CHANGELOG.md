@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.2](https://github.com/cheesymoon/drausible/compare/v1.3.1...v1.3.2) (2026-08-15)
+
+
+### Bug Fixes
+
+* **docs:** rework the store description ([afe985c](https://github.com/cheesymoon/drausible/commit/afe985cab76da431fd4d5c352d4dc47be5149d91))
+* **docs:** rework the store description ([626bd82](https://github.com/cheesymoon/drausible/commit/626bd826d5406882efc7ac3ce76dd468481361aa))
+
 ## [1.3.1](https://github.com/cheesymoon/drausible/compare/v1.3.0...v1.3.1) (2026-08-13)
 
 

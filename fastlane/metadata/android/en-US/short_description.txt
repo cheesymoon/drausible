@@ -1,1 +1,1 @@
-Read your Plausible Analytics stats, from plausible.io or your own server
+Read your Plausible Analytics stats, from plausible.io or a self-hosted server

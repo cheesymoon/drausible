@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.3](https://github.com/cheesymoon/drausible/compare/v1.3.2...v1.3.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **android:** keep AGP dependency info out of the APK ([a119579](https://github.com/cheesymoon/drausible/commit/a1195793f39b97cdb225a45f864fc726c04de514))
+* **android:** keep AGP dependency info out of the APK ([12d91c5](https://github.com/cheesymoon/drausible/commit/12d91c5740d74bf6fccfe445c4ded5583c988874))
+
 ## [1.3.2](https://github.com/cheesymoon/drausible/compare/v1.3.1...v1.3.2) (2026-08-15)
 
 

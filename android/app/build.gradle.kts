@@ -46,6 +46,13 @@ android {
         versionName = flutter.versionName
     }
 
+    // AGP stashes a dependency list in the APK signing block for the Play
+    // Console. F-Droid's scanner rejects any extra block, so leave it out.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     signingConfigs {
         create("release") {
             keyAlias = keystoreProperties.getProperty("keyAlias")

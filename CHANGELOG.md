@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/cheesymoon/drausible/compare/v1.3.3...v1.4.0) (2026-08-26)
+
+
+### Features
+
+* warn before saving a server that talks plain http ([32bf4a5](https://github.com/cheesymoon/drausible/commit/32bf4a534e9cc042e9ffda8c674daa9a1d55ac0d))
+
 ## [1.3.3](https://github.com/cheesymoon/drausible/compare/v1.3.2...v1.3.3) (2026-08-23)
 
 

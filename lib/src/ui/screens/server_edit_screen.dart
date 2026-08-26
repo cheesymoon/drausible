@@ -31,6 +31,8 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
   late final TextEditingController _proxyPortController;
 
   late bool _useProxy;
+  late bool _insecure;
+  late final bool _acknowledgedAtOpen;
   bool _obscureApiKey = true;
   bool _saving = false;
 
@@ -46,6 +48,12 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
     _useProxy = server?.proxy != null;
     _proxyHostController = TextEditingController(text: server?.proxy?.host ?? '127.0.0.1');
     _proxyPortController = TextEditingController(text: (server?.proxy?.port ?? 9050).toString());
+
+    _insecure = _isInsecure(_urlController.text);
+    // A server already stored on http was acknowledged when it was added.
+    // Renaming it shouldn't mean ticking the box a second time.
+    _acknowledgedAtOpen = _insecure;
+    _urlController.addListener(_onUrlChanged);
   }
 
   @override
@@ -79,6 +87,7 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
               keyboardType: TextInputType.url,
               validator: _validateUrl,
             ),
+            if (_insecure) ...<Widget>[const SizedBox(height: 12), _buildInsecureWarning()],
             const SizedBox(height: 16),
             TextFormField(
               controller: _apiKeyController,
@@ -134,6 +143,93 @@ class _ServerEditScreenState extends ConsumerState<ServerEditScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _onUrlChanged() {
+    final bool insecure = _isInsecure(_urlController.text);
+    if (insecure != _insecure) setState(() => _insecure = insecure);
+  }
+
+  /// Tor encrypts and authenticates the hop itself, so plain http to a .onion
+  /// host is not the cleartext problem this warns about.
+  static bool _isInsecure(String url) {
+    final Uri? uri = Uri.tryParse(url.trim());
+    if (uri == null || uri.scheme != 'http') return false;
+    return !uri.host.toLowerCase().endsWith('.onion');
+  }
+
+  /// Only ever built for an http host. The checkbox is a form field so Save
+  /// refuses to go through until it is ticked.
+  Widget _buildInsecureWarning() {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colors = theme.colorScheme;
+
+    return FormField<bool>(
+      initialValue: _acknowledgedAtOpen,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (bool? acknowledged) => (acknowledged ?? false) ? null : 'Tick the box to connect over http',
+      builder: (FormFieldState<bool> field) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          decoration: BoxDecoration(
+            color: colors.errorContainer,
+            border: Border.all(color: colors.error),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(Icons.warning_amber_rounded, color: colors.error),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Unencrypted connection',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: colors.onErrorContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Your API key and your stats cross the network in the clear, where anyone '
+                          'else on it can read them. Inside a WireGuard or Tailscale tunnel they are '
+                          'already encrypted. On shared wifi, assume they are not.',
+                          style: theme.textTheme.bodySmall?.copyWith(color: colors.onErrorContainer),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                controlAffinity: ListTileControlAffinity.leading,
+                activeColor: colors.error,
+                checkColor: colors.onError,
+                title: Text(
+                  'I know what I\'m doing',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: colors.onErrorContainer),
+                ),
+                value: field.value ?? false,
+                onChanged: (bool? value) => field.didChange(value ?? false),
+              ),
+              if (field.hasError)
+                Text(
+                  field.errorText!,
+                  style: theme.textTheme.bodySmall?.copyWith(color: colors.error, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

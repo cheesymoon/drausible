@@ -59,6 +59,16 @@ Future<ProviderContainer> _pump(WidgetTester tester, {Server? server}) async {
   return container;
 }
 
+Finder _field(String label) => find.ancestor(of: find.text(label), matching: find.byType(TextFormField));
+
+/// The warning card pushes Save past the bottom of the default 800x600 test
+/// surface. Taller beats scrolling before every tap.
+void _tallSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 1600);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   testWidgets('edit mode names the detected stats API', (WidgetTester tester) async {
     await _pump(tester, server: _server.copyWith(apiVersion: ApiVersion.v2));
@@ -107,5 +117,79 @@ void main() {
     final Server saved = container.read(configProvider).servers.single;
     expect(saved.baseUrl, Uri.parse('https://stats.example.net'));
     expect(saved.apiVersion, ApiVersion.unknown);
+  });
+
+  testWidgets('an https server draws no warning', (WidgetTester tester) async {
+    await _pump(tester, server: _server);
+
+    expect(find.text('Unencrypted connection'), findsNothing);
+  });
+
+  testWidgets('an http base url warns and holds Save back until acknowledged', (WidgetTester tester) async {
+    _tallSurface(tester);
+    final ProviderContainer container = await _pump(tester);
+
+    // A pump between these matters: back to back, the text lands in whichever
+    // field the keyboard is still attached to.
+    await tester.enterText(_field('Server name'), 'LAN box');
+    await tester.pumpAndSettle();
+    await tester.enterText(_field('Base URL'), 'http://192.168.1.10:8000');
+    await tester.pumpAndSettle();
+    await tester.enterText(_field('API key'), 'secret');
+    await tester.pumpAndSettle();
+
+    // The warning follows the text field, no save round trip needed.
+    expect(find.text('Unencrypted connection'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tick the box to connect over http'), findsOneWidget);
+    expect(container.read(configProvider).servers, hasLength(1));
+
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pumpAndSettle();
+    expect(find.text('Tick the box to connect over http'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(container.read(configProvider).servers, hasLength(2));
+  });
+
+  testWidgets('switching the url back to https drops the warning', (WidgetTester tester) async {
+    await _pump(tester);
+
+    await tester.enterText(_field('Base URL'), 'http://192.168.1.10:8000');
+    await tester.pumpAndSettle();
+    expect(find.text('Unencrypted connection'), findsOneWidget);
+
+    await tester.enterText(_field('Base URL'), 'https://plausible.example.org');
+    await tester.pumpAndSettle();
+    expect(find.text('Unencrypted connection'), findsNothing);
+  });
+
+  testWidgets('a .onion host carries its own encryption, so no warning', (WidgetTester tester) async {
+    await _pump(tester);
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.enterText(_field('Base URL'), 'http://abcdefgh.onion');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unencrypted connection'), findsNothing);
+  });
+
+  testWidgets('a server already stored on http opens acknowledged', (WidgetTester tester) async {
+    _tallSurface(tester);
+    final Server lan = Server(id: 'srv1', name: 'LAN box', baseUrl: Uri.parse('http://192.168.1.10:8000'));
+    final ProviderContainer container = await _pump(tester, server: lan);
+
+    expect(find.text('Unencrypted connection'), findsOneWidget);
+    expect(tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value, isTrue);
+
+    // Renaming it goes through without re-ticking.
+    await tester.enterText(_field('Server name'), 'Home box');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(configProvider).servers.single.name, 'Home box');
   });
 }

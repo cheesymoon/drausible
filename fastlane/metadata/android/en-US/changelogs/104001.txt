@@ -1,0 +1,1 @@
+* Ask you to confirm before saving a server that uses plain http, where the API key and your stats cross the network unencrypted. Tor .onion addresses are left alone.

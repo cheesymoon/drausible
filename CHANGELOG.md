@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.4.0](https://github.com/cheesymoon/drausible/compare/v1.3.3...v1.4.0) (2026-08-26)
+
+
+* Ask you to confirm before saving a server that uses plain http, where the API key and your stats cross the network unencrypted. Tor .onion addresses are left alone.
+
 ## [1.3.3](https://github.com/cheesymoon/drausible/compare/v1.3.2...v1.3.3) (2026-08-23)
 
 

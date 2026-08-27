@@ -3,9 +3,7 @@
 ## [1.4.1](https://github.com/cheesymoon/drausible/compare/v1.4.0...v1.4.1) (2026-08-27)
 
 
-### Bug Fixes
-
-* **ci:** pin the Flutter version in the release workflow ([817d06c](https://github.com/cheesymoon/drausible/commit/817d06c4c61b9f37de64870aeeb5184baf48c70c))
+* Change how F-Droid picks the Flutter version it builds with. The app itself is unchanged.
 
 ## [1.4.0](https://github.com/cheesymoon/drausible/compare/v1.3.3...v1.4.0) (2026-08-26)
 

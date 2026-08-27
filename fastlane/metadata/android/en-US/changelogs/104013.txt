@@ -1,0 +1,1 @@
+* Change how F-Droid picks the Flutter version it builds with. The app itself is unchanged.

@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.4.1](https://github.com/cheesymoon/drausible/compare/v1.4.0...v1.4.1) (2026-08-27)
+
+
+* Change how F-Droid picks the Flutter version it builds with. The app itself is unchanged.
+
 ## [1.4.0](https://github.com/cheesymoon/drausible/compare/v1.3.3...v1.4.0) (2026-08-26)
 
 

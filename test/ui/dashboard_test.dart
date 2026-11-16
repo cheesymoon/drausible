@@ -332,6 +332,111 @@ void main() {
     expect(find.text('Desktop'), findsNothing);
   });
 
+  testWidgets('a flick over the switch row still moves to the next tab', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.source),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('Hacker News', 90)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    // The row scrolls sideways only once it overflows, which it doesn't here,
+    // so the flick has to reach the tab switcher underneath.
+    await tester.ensureVisible(find.text('Top'));
+    await tester.fling(find.text('Top'), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hacker News'), findsOneWidget);
+  });
+
+  testWidgets('the Pages tab switches between top, entry and exit pages', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.page),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('/blog', 812)])),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.entryPage),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('/landing', 300)])),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.exitPage),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('/checkout/done', 60)])),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('/blog'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Entry'));
+    await tester.tap(find.text('Entry'));
+    await tester.pumpAndSettle();
+    expect(find.text('/landing'), findsOneWidget);
+    expect(find.text('/blog'), findsNothing);
+
+    await tester.tap(find.text('Exit'));
+    await tester.pumpAndSettle();
+    expect(find.text('/checkout/done'), findsOneWidget);
+    expect(find.text('/landing'), findsNothing);
+  });
+
+  testWidgets('the Sources tab switches to a UTM breakdown', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(breakdownArgs(BreakdownDimension.page)).overrideWith((Ref ref) async => <BreakdownRow>[]),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.source),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('Hacker News', 90)])),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.utmCampaign),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('spring_sale', 45)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Sources'));
+    await tester.tap(find.text('Sources'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hacker News'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Campaign'));
+    await tester.tap(find.text('Campaign'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('spring_sale'), findsOneWidget);
+    expect(find.text('Hacker News'), findsNothing);
+  });
+
+  testWidgets('a switch picked on one tab does not carry over to the next', (WidgetTester tester) async {
+    await _pump(tester, <Override>[
+      overviewProvider(args30).overrideWith((Ref ref) async => _fakeOverview()),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.page),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('/blog', 812)])),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.exitPage),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('/checkout/done', 60)])),
+      breakdownProvider(
+        breakdownArgs(BreakdownDimension.source),
+      ).overrideWith((Ref ref) async => fakeRows(<(String, int)>[('Hacker News', 90)])),
+    ]);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Exit'));
+    await tester.tap(find.text('Exit'));
+    await tester.pumpAndSettle();
+    expect(find.text('/checkout/done'), findsOneWidget);
+
+    // Sources opens on its own first option, not on the third one.
+    await tester.tap(find.text('Sources'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hacker News'), findsOneWidget);
+
+    // And Pages comes back on Top, not on Exit.
+    await tester.tap(find.text('Pages'));
+    await tester.pumpAndSettle();
+    expect(find.text('/blog'), findsOneWidget);
+    expect(find.text('/checkout/done'), findsNothing);
+  });
+
   testWidgets('a breakdown error shows a one-line message and a retry that recovers', (WidgetTester tester) async {
     int callCount = 0;
     await _pump(tester, <Override>[

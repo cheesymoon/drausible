@@ -9,7 +9,9 @@ Stats per site:
 
 * Visitors, visits, pageviews, views per visit, bounce rate and average visit duration
 * Visitors over time chart, bucketed by the hour when you look at a single day
-* Top pages, sources, countries, devices with a switch between type, browser and OS
+* Top pages, with entry and exit pages a switch away
+* Sources, with a switch to UTM medium, source and campaign
+* Countries, and devices with a switch between type, browser and OS
 * How many visitors are on the site right now, kept up to date while the screen is open
 
 A few things that matter if you self-host:

@@ -263,6 +263,26 @@ void main() {
       expect(rows.single.name, '/blog');
       expect(rows.single.visitors, 12);
     });
+
+    test('breakdown by entry page reads rows keyed by "entry_page"', () async {
+      const String body = '{"results": [{"entry_page": "/landing", "visitors": 7}]}';
+      http.Request? captured;
+      final MockClient client = MockClient((http.Request request) async {
+        captured = request;
+        return http.Response(body, 200);
+      });
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final List<BreakdownRow> rows = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.entryPage,
+      );
+
+      expect(captured!.url.queryParameters['property'], 'visit:entry_page');
+      expect(rows.single.name, '/landing');
+      expect(rows.single.visitors, 7);
+    });
   });
 
   group('error mapping', () {

@@ -137,6 +137,27 @@ void main() {
       expect(rows[0].name, 'US');
       expect(rows[0].visitors, 532);
     });
+
+    test('breakdown by UTM medium drops the row for untagged visits', () async {
+      const String body =
+          '{"results": [{"dimensions": [""], "metrics": [900]}, {"dimensions": ["email"], "metrics": [40]}]}';
+      http.Request? captured;
+      final MockClient client = MockClient((http.Request request) async {
+        captured = request;
+        return http.Response(body, 200);
+      });
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final List<BreakdownRow> rows = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.utmMedium,
+      );
+
+      expect(jsonDecode(captured!.body)['dimensions'], <String>['visit:utm_medium']);
+      expect(rows.single.name, 'email');
+      expect(rows.single.visitors, 40);
+    });
   });
 
   group('error mapping', () {

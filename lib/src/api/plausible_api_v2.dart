@@ -101,13 +101,18 @@ class PlausibleApiV2 implements PlausibleApi {
     });
     try {
       final List<dynamic> results = response.json['results'] as List<dynamic>;
-      return <BreakdownRow>[
-        for (final dynamic row in results)
-          BreakdownRow(
-            name: ((row as Map<String, dynamic>)['dimensions'] as List<dynamic>)[0] as String,
-            visitors: ((row['metrics'] as List<dynamic>)[0] as num).toInt(),
-          ),
-      ];
+      final List<BreakdownRow> rows = <BreakdownRow>[];
+      for (final dynamic row in results) {
+        final dynamic name = ((row as Map<String, dynamic>)['dimensions'] as List<dynamic>)[0];
+        // A visit that arrived without a UTM tag has an empty string for it,
+        // so the untagged share can come back as one nameless row, usually the
+        // biggest. A server with no GeoIP database does the same with country.
+        // Nothing to label those with, so they go and the rest of the report
+        // stays.
+        if (name is! String || name.isEmpty) continue;
+        rows.add(BreakdownRow(name: name, visitors: ((row['metrics'] as List<dynamic>)[0] as num).toInt()));
+      }
+      return rows;
     } catch (_) {
       throw ServerException(response.statusCode);
     }

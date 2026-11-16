@@ -741,20 +741,33 @@ class _SelectedBreakdownTabState extends State<_SelectedBreakdownTab> {
 
   @override
   Widget build(BuildContext context) {
+    // Keyed per tab: three of the four are the same widget type, and without
+    // a key the switch picked on one tab would carry over to the next.
     switch (_index) {
       case 0:
-        return _BreakdownList(
+        return _SwitchedBreakdownTab(
+          key: const ValueKey<String>('pages'),
           serverId: widget.serverId,
           siteId: widget.siteId,
           range: widget.range,
-          dimension: BreakdownDimension.page,
+          options: const <(BreakdownDimension, String)>[
+            (BreakdownDimension.page, 'Top'),
+            (BreakdownDimension.entryPage, 'Entry'),
+            (BreakdownDimension.exitPage, 'Exit'),
+          ],
         );
       case 1:
-        return _BreakdownList(
+        return _SwitchedBreakdownTab(
+          key: const ValueKey<String>('sources'),
           serverId: widget.serverId,
           siteId: widget.siteId,
           range: widget.range,
-          dimension: BreakdownDimension.source,
+          options: const <(BreakdownDimension, String)>[
+            (BreakdownDimension.source, 'All'),
+            (BreakdownDimension.utmMedium, 'Medium'),
+            (BreakdownDimension.utmSource, 'Source'),
+            (BreakdownDimension.utmCampaign, 'Campaign'),
+          ],
         );
       case 2:
         return _BreakdownList(
@@ -764,38 +777,62 @@ class _SelectedBreakdownTabState extends State<_SelectedBreakdownTab> {
           dimension: BreakdownDimension.country,
         );
       default:
-        return _DevicesTab(serverId: widget.serverId, siteId: widget.siteId, range: widget.range);
+        return _SwitchedBreakdownTab(
+          key: const ValueKey<String>('devices'),
+          serverId: widget.serverId,
+          siteId: widget.siteId,
+          range: widget.range,
+          options: const <(BreakdownDimension, String)>[
+            (BreakdownDimension.device, 'Device'),
+            (BreakdownDimension.browser, 'Browser'),
+            (BreakdownDimension.os, 'OS'),
+          ],
+        );
     }
   }
 }
 
-class _DevicesTab extends StatefulWidget {
-  const _DevicesTab({required this.serverId, required this.siteId, required this.range});
+/// A tab whose report comes in a few closely related dimensions, picked with
+/// a SegmentedButton above the rows. The first option is the default.
+class _SwitchedBreakdownTab extends StatefulWidget {
+  const _SwitchedBreakdownTab({
+    required this.serverId,
+    required this.siteId,
+    required this.range,
+    required this.options,
+    super.key,
+  });
 
   final String serverId;
   final String siteId;
   final DateRangeSel range;
+  final List<(BreakdownDimension, String)> options;
 
   @override
-  State<_DevicesTab> createState() => _DevicesTabState();
+  State<_SwitchedBreakdownTab> createState() => _SwitchedBreakdownTabState();
 }
 
-class _DevicesTabState extends State<_DevicesTab> {
-  BreakdownDimension _dimension = BreakdownDimension.device;
+class _SwitchedBreakdownTabState extends State<_SwitchedBreakdownTab> {
+  late BreakdownDimension _dimension = widget.options.first.$1;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        SegmentedButton<BreakdownDimension>(
-          segments: const <ButtonSegment<BreakdownDimension>>[
-            ButtonSegment<BreakdownDimension>(value: BreakdownDimension.device, label: Text('Device')),
-            ButtonSegment<BreakdownDimension>(value: BreakdownDimension.browser, label: Text('Browser')),
-            ButtonSegment<BreakdownDimension>(value: BreakdownDimension.os, label: Text('OS')),
-          ],
-          selected: <BreakdownDimension>{_dimension},
-          onSelectionChanged: (Set<BreakdownDimension> selected) => setState(() => _dimension = selected.first),
+        // Four segments at a large font don't fit a narrow phone. Scrolling
+        // only kicks in when the button really is wider than the screen, so
+        // the tab flick above keeps working over the row otherwise.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<BreakdownDimension>(
+            segments: <ButtonSegment<BreakdownDimension>>[
+              for (final (BreakdownDimension dimension, String label) in widget.options)
+                ButtonSegment<BreakdownDimension>(value: dimension, label: Text(label)),
+            ],
+            selected: <BreakdownDimension>{_dimension},
+            onSelectionChanged: (Set<BreakdownDimension> selected) => setState(() => _dimension = selected.first),
+          ),
         ),
         const SizedBox(height: 12),
         _BreakdownList(serverId: widget.serverId, siteId: widget.siteId, range: widget.range, dimension: _dimension),

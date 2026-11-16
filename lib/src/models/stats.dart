@@ -38,7 +38,12 @@ class BreakdownRow {
 
 enum BreakdownDimension {
   page('event:page'),
+  entryPage('visit:entry_page'),
+  exitPage('visit:exit_page'),
   source('visit:source'),
+  utmMedium('visit:utm_medium'),
+  utmSource('visit:utm_source'),
+  utmCampaign('visit:utm_campaign'),
   country('visit:country'),
   device('visit:device'),
   browser('visit:browser'),

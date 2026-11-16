@@ -18,7 +18,9 @@ It is mostly replicating the web view:
 
 - visitors, visits, pageviews, views per visit, bounce rate and average visit duration
 - visitors over time as a chart, bucketed hourly when the range is a single day
-- top pages, sources and countries, plus devices with a switch between device type, browser and OS
+- top pages, with a switch to entry and exit pages
+- sources, with a switch to UTM medium, source and campaign
+- countries, plus devices with a switch between device type, browser and OS
 - how many people are on the site right now, refreshed every 30 seconds while the screen is open
 
 ## Setting it up

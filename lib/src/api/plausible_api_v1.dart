@@ -138,6 +138,10 @@ class PlausibleApiV1 implements PlausibleApi {
         // There is nothing to label such a row with, so drop it and keep the
         // rest of the report.
         if (name is! String || name.isEmpty) continue;
+        // Servers before v2 put untagged visits into the UTM reports as one
+        // "Direct / None" row. Newer ones leave it out, so it goes here too.
+        // In plain Sources it is a real entry and stays.
+        if (name == 'Direct / None' && property.startsWith('visit:utm_')) continue;
         rows.add(BreakdownRow(name: name, visitors: _count(row['visitors'])));
       }
       return rows;

@@ -140,7 +140,7 @@ void main() {
 
     test('breakdown by UTM medium drops the row for untagged visits', () async {
       const String body =
-          '{"results": [{"dimensions": [""], "metrics": [900]}, {"dimensions": ["email"], "metrics": [40]}]}';
+          '{"results": [{"dimensions": ["(not set)"], "metrics": [900]}, {"dimensions": ["email"], "metrics": [40]}]}';
       http.Request? captured;
       final MockClient client = MockClient((http.Request request) async {
         captured = request;
@@ -157,6 +157,21 @@ void main() {
       expect(jsonDecode(captured!.body)['dimensions'], <String>['visit:utm_medium']);
       expect(rows.single.name, 'email');
       expect(rows.single.visitors, 40);
+    });
+
+    test('breakdown by browser keeps its "(not set)" row', () async {
+      const String body =
+          '{"results": [{"dimensions": ["Chrome"], "metrics": [350]}, {"dimensions": ["(not set)"], "metrics": [35]}]}';
+      final MockClient client = MockClient((http.Request request) async => http.Response(body, 200));
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final List<BreakdownRow> rows = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.browser,
+      );
+
+      expect(rows.map((BreakdownRow r) => r.name), <String>['Chrome', '(not set)']);
     });
   });
 

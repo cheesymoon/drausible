@@ -283,6 +283,37 @@ void main() {
       expect(rows.single.name, '/landing');
       expect(rows.single.visitors, 7);
     });
+
+    test('breakdown by UTM source drops the "Direct / None" row of older servers', () async {
+      const String body =
+          '{"results": [{"utm_source": "Direct / None", "visitors": 900}, {"utm_source": "newsletter", "visitors": 40}]}';
+      final MockClient client = MockClient((http.Request request) async => http.Response(body, 200));
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final List<BreakdownRow> rows = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.utmSource,
+      );
+
+      expect(rows.single.name, 'newsletter');
+      expect(rows.single.visitors, 40);
+    });
+
+    test('breakdown by source keeps "Direct / None"', () async {
+      const String body =
+          '{"results": [{"source": "Direct / None", "visitors": 900}, {"source": "Google", "visitors": 40}]}';
+      final MockClient client = MockClient((http.Request request) async => http.Response(body, 200));
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final List<BreakdownRow> rows = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.source,
+      );
+
+      expect(rows.map((BreakdownRow r) => r.name), <String>['Direct / None', 'Google']);
+    });
   });
 
   group('error mapping', () {

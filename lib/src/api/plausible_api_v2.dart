@@ -104,12 +104,14 @@ class PlausibleApiV2 implements PlausibleApi {
       final List<BreakdownRow> rows = <BreakdownRow>[];
       for (final dynamic row in results) {
         final dynamic name = ((row as Map<String, dynamic>)['dimensions'] as List<dynamic>)[0];
-        // A visit that arrived without a UTM tag has an empty string for it,
-        // so the untagged share can come back as one nameless row, usually the
-        // biggest. A server with no GeoIP database does the same with country.
+        // Visits without a UTM tag come back as one "(not set)" row, usually
+        // the biggest by far. v1 leaves them out and so does the web
+        // dashboard. Browser and OS keep theirs, since the web shows those.
+        // A server with no GeoIP database sends country as an empty string.
         // Nothing to label those with, so they go and the rest of the report
         // stays.
         if (name is! String || name.isEmpty) continue;
+        if (name == '(not set)' && dimension.v2Dimension.startsWith('visit:utm_')) continue;
         rows.add(BreakdownRow(name: name, visitors: ((row['metrics'] as List<dynamic>)[0] as num).toInt()));
       }
       return rows;

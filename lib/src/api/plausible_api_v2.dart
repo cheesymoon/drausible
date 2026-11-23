@@ -120,8 +120,14 @@ class PlausibleApiV2 implements PlausibleApi {
     }
   }
 
+  // Imported data (from Google Analytics or a CSV) only counts when a query
+  // asks for it, so every query does. Otherwise the numbers start at the day
+  // the site moved to Plausible.
   Future<_QueryResponse> _query(Map<String, dynamic> body) async {
-    final http.Response response = await _send(body);
+    final http.Response response = await _send(<String, dynamic>{
+      ...body,
+      'include': <String, dynamic>{...?body['include'] as Map<String, dynamic>?, 'imports': true},
+    });
     return _QueryResponse(response.statusCode, _decodeBody(response));
   }
 

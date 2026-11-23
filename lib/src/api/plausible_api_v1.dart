@@ -186,6 +186,8 @@ class PlausibleApiV1 implements PlausibleApi {
         'site_id': siteId,
         'period': range.v1Period,
         if (date != null) 'date': date,
+        // Same as include.imports on v2: imported data only counts when asked.
+        'with_imported': 'true',
         ...params,
       },
     );

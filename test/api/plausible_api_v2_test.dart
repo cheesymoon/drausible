@@ -34,6 +34,7 @@ void main() {
           'site_id': 'example.com',
           'metrics': <String>['visitors', 'visits', 'pageviews', 'views_per_visit', 'bounce_rate', 'visit_duration'],
           'date_range': '30d',
+          'include': <String, dynamic>{'imports': true},
         }),
       );
       expect(stats.visitors, 1423);
@@ -74,7 +75,7 @@ void main() {
           'metrics': <String>['visitors'],
           'date_range': 'day',
           'dimensions': <String>['time:hour'],
-          'include': <String, dynamic>{'time_labels': true},
+          'include': <String, dynamic>{'time_labels': true, 'imports': true},
         }),
       );
       expect(points, hasLength(3));
@@ -100,7 +101,7 @@ void main() {
           'metrics': <String>['visitors'],
           'date_range': <String>['2024-01-03', '2024-02-07'],
           'dimensions': <String>['time'],
-          'include': <String, dynamic>{'time_labels': true},
+          'include': <String, dynamic>{'time_labels': true, 'imports': true},
         }),
       );
     });
@@ -131,6 +132,7 @@ void main() {
             <String>['visitors', 'desc'],
           ],
           'pagination': <String, dynamic>{'limit': 10},
+          'include': <String, dynamic>{'imports': true},
         }),
       );
       expect(rows, hasLength(3));

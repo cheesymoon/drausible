@@ -31,6 +31,7 @@ void main() {
         equals(<String, String>{
           'site_id': 'example.com',
           'period': '30d',
+          'with_imported': 'true',
           'metrics': 'visitors,pageviews,bounce_rate,visit_duration,visits,views_per_visit',
         }),
       );
@@ -127,7 +128,12 @@ void main() {
       expect(captured!.url.path, '/api/v1/stats/timeseries');
       expect(
         captured!.url.queryParameters,
-        equals(<String, String>{'site_id': 'example.com', 'period': '7d', 'metrics': 'visitors'}),
+        equals(<String, String>{
+          'site_id': 'example.com',
+          'period': '7d',
+          'with_imported': 'true',
+          'metrics': 'visitors',
+        }),
       );
       expect(points, hasLength(3));
       expect(points[0].time, DateTime(2024, 1, 13));
@@ -207,6 +213,7 @@ void main() {
           'site_id': 'example.com',
           'period': 'custom',
           'date': '2024-01-03,2024-02-07',
+          'with_imported': 'true',
           'metrics': 'visitors',
         }),
       );
@@ -233,6 +240,7 @@ void main() {
         equals(<String, String>{
           'site_id': 'example.com',
           'period': '30d',
+          'with_imported': 'true',
           'property': 'visit:country',
           'metrics': 'visitors',
           'limit': '10',

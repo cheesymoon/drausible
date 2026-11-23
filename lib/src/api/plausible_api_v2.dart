@@ -97,7 +97,9 @@ class PlausibleApiV2 implements PlausibleApi {
       'order_by': const <List<String>>[
         <String>['visitors', 'desc'],
       ],
-      'pagination': <String, dynamic>{'limit': limit},
+      // One extra for UTM, so the list is still full after the placeholder
+      // row goes.
+      'pagination': <String, dynamic>{'limit': dimension.isUtm ? limit + 1 : limit},
     });
     try {
       final List<dynamic> results = response.json['results'] as List<dynamic>;
@@ -105,16 +107,17 @@ class PlausibleApiV2 implements PlausibleApi {
       for (final dynamic row in results) {
         final dynamic name = ((row as Map<String, dynamic>)['dimensions'] as List<dynamic>)[0];
         // Visits without a UTM tag come back as one "(not set)" row, usually
-        // the biggest by far. v1 leaves them out and so does the web
-        // dashboard. Browser and OS keep theirs, since the web shows those.
+        // the biggest by far. The web dashboard leaves it out, and so does v1
+        // on current servers. Browser and OS keep theirs, since the web shows
+        // those.
         // A server with no GeoIP database sends country as an empty string.
         // Nothing to label those with, so they go and the rest of the report
         // stays.
         if (name is! String || name.isEmpty) continue;
-        if (name == '(not set)' && dimension.v2Dimension.startsWith('visit:utm_')) continue;
+        if (name == '(not set)' && dimension.isUtm) continue;
         rows.add(BreakdownRow(name: name, visitors: ((row['metrics'] as List<dynamic>)[0] as num).toInt()));
       }
-      return rows;
+      return rows.take(limit).toList();
     } catch (_) {
       throw ServerException(response.statusCode);
     }

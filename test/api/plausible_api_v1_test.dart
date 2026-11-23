@@ -308,6 +308,45 @@ void main() {
       expect(rows.single.visitors, 40);
     });
 
+    test('a UTM breakdown asks for one extra row and still returns the limit', () async {
+      const String body =
+          '{"results": [{"utm_source": "newsletter", "visitors": 40}, {"utm_source": "twitter", "visitors": 30}, '
+          '{"utm_source": "mastodon", "visitors": 20}]}';
+      http.Request? captured;
+      final MockClient client = MockClient((http.Request request) async {
+        captured = request;
+        return http.Response(body, 200);
+      });
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final List<BreakdownRow> rows = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.utmSource,
+        limit: 2,
+      );
+
+      expect(captured!.url.queryParameters['limit'], '3');
+      expect(rows.map((BreakdownRow r) => r.name), <String>['newsletter', 'twitter']);
+    });
+
+    test('a UTM breakdown is still full after the "Direct / None" row goes', () async {
+      const String body =
+          '{"results": [{"utm_source": "Direct / None", "visitors": 900}, {"utm_source": "newsletter", "visitors": 40}, '
+          '{"utm_source": "twitter", "visitors": 30}]}';
+      final MockClient client = MockClient((http.Request request) async => http.Response(body, 200));
+      final PlausibleApiV1 api = PlausibleApiV1(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final List<BreakdownRow> rows = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.utmSource,
+        limit: 2,
+      );
+
+      expect(rows.map((BreakdownRow r) => r.name), <String>['newsletter', 'twitter']);
+    });
+
     test('breakdown by source keeps "Direct / None"', () async {
       const String body =
           '{"results": [{"source": "Direct / None", "visitors": 900}, {"source": "Google", "visitors": 40}]}';

@@ -52,4 +52,8 @@ enum BreakdownDimension {
   const BreakdownDimension(this.v2Dimension);
 
   final String v2Dimension;
+
+  /// UTM reports have one placeholder row for visits without a tag, which the
+  /// API clients drop.
+  bool get isUtm => v2Dimension.startsWith('visit:utm_');
 }

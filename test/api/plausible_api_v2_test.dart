@@ -161,6 +161,39 @@ void main() {
       expect(rows.single.visitors, 40);
     });
 
+    test('a UTM breakdown asks for one extra row and still returns the limit', () async {
+      const String body =
+          '{"results": [{"dimensions": ["(not set)"], "metrics": [900]}, {"dimensions": ["email"], "metrics": [40]}, '
+          '{"dimensions": ["cpc"], "metrics": [30]}]}';
+      const String untouched =
+          '{"results": [{"dimensions": ["email"], "metrics": [40]}, {"dimensions": ["cpc"], "metrics": [30]}, '
+          '{"dimensions": ["social"], "metrics": [20]}]}';
+      final List<http.Request> requests = <http.Request>[];
+      final List<String> bodies = <String>[body, untouched];
+      final MockClient client = MockClient((http.Request request) async {
+        requests.add(request);
+        return http.Response(bodies[requests.length - 1], 200);
+      });
+      final PlausibleApiV2 api = PlausibleApiV2(client, Uri.parse('https://plausible.example.org'), 'secret-key');
+
+      final List<BreakdownRow> withPlaceholder = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.utmMedium,
+        limit: 2,
+      );
+      final List<BreakdownRow> withoutPlaceholder = await api.breakdown(
+        'example.com',
+        const DateRangeSel.d30(),
+        BreakdownDimension.utmMedium,
+        limit: 2,
+      );
+
+      expect(jsonDecode(requests[0].body)['pagination'], <String, dynamic>{'limit': 3});
+      expect(withPlaceholder.map((BreakdownRow r) => r.name), <String>['email', 'cpc']);
+      expect(withoutPlaceholder.map((BreakdownRow r) => r.name), <String>['email', 'cpc']);
+    });
+
     test('breakdown by browser keeps its "(not set)" row', () async {
       const String body =
           '{"results": [{"dimensions": ["Chrome"], "metrics": [350]}, {"dimensions": ["(not set)"], "metrics": [35]}]}';

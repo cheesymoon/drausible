@@ -126,7 +126,9 @@ class PlausibleApiV1 implements PlausibleApi {
     final _V1Response response = await _get('/api/v1/stats/breakdown', siteId, range, <String, String>{
       'property': property,
       'metrics': 'visitors',
-      'limit': '$limit',
+      // One extra for UTM, so the list is still full after the placeholder
+      // row goes.
+      'limit': '${dimension.isUtm ? limit + 1 : limit}',
     });
     try {
       final List<dynamic> results = response.json['results'] as List<dynamic>;
@@ -141,10 +143,10 @@ class PlausibleApiV1 implements PlausibleApi {
         // Servers before v2 put untagged visits into the UTM reports as one
         // "Direct / None" row. Newer ones leave it out, so it goes here too.
         // In plain Sources it is a real entry and stays.
-        if (name == 'Direct / None' && property.startsWith('visit:utm_')) continue;
+        if (name == 'Direct / None' && dimension.isUtm) continue;
         rows.add(BreakdownRow(name: name, visitors: _count(row['visitors'])));
       }
-      return rows;
+      return rows.take(limit).toList();
     } catch (_) {
       throw ServerException(response.statusCode);
     }
